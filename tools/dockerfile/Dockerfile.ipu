@@ -5,7 +5,7 @@
 # --device=/dev/infiniband/ --ipc=host --name paddle-with-dev -v $PWD:/paddle \
 # -it paddlepaddle/paddle:latest-ipu-dev /bin/bash
 
-FROM graphcore/poplar:latest
+FROM graphcore/poplar:2.3.0
 MAINTAINER PaddlePaddle Authors <paddle-dev@baidu.com>
 
 # ENV variables
