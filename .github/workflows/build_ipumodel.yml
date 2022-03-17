@@ -1,13 +1,13 @@
-name: ipu_build_use_ipumodel
+name: ipu_build_use_ipumodel_2.3.0
 
 on:
   pull_request:
     branches:
-      - develop-ipu
+      - sdk_2.3.0
 
 jobs:
   build_py_wheel:
-    runs-on: self-hosted
+    runs-on: sdk_2.3.0
 
     steps:
       - name: clean space
@@ -22,7 +22,8 @@ jobs:
 
       - name: build
         run: |
-          gc-docker -- \
+          docker run --ulimit memlock=-1:-1 --net=host --cap-add=IPC_LOCK \
+            --device=/dev/infiniband/ --ipc=host \
             -v /tmp:/host_tmp \
             -v $PWD:/checkout \
             -v paddle_ccahe:/paddle_ccahe \
