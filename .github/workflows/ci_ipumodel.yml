@@ -1,0 +1,58 @@
+name: ci_ipumodel_2.3.0
+
+on:
+  pull_request:
+    branches:
+      - sdk_2.3.0
+
+jobs:
+  build_py_wheel:
+    runs-on: sdk_2.3.0
+
+    steps:
+      - name: clean space
+        run: |
+          docker run \
+            -v $PWD:/paddle \
+            --rm \
+            paddlepaddle/paddle:ipu-dev-2.3.0 \
+            bash -c "cd /paddle && pwd && ls -a /paddle && rm -rf ..?* .[!.]* *"
+
+      - uses: actions/checkout@v2
+
+      - name: build
+        run: |
+          docker run \
+          --ulimit memlock=-1:-1 --net=host --cap-add=IPC_LOCK \
+          --device=/dev/infiniband/ --ipc=host \
+          -v paddle_ccahe:/paddle_ccahe \
+          -e CCACHE_DIR=/paddle_ccahe \
+          -v $PWD:/paddle \
+          -e CCACHE_MAXSIZE=20G \
+          -v paddle_ipuof:/ipuof \
+          -e GITHUB_SHA=${GITHUB_SHA} \
+          -v paddle_wheels:/paddle_wheels \
+          -e IPUOF_CONFIG_PATH=/ipuof/ipu.conf \
+          -e POPLAR_IPUMODEL=1 \
+          -w /paddle \
+          -v paddle_ccahe:/paddle_ccahe \
+          -e CCACHE_DIR=/paddle_ccahe \
+          -e CCACHE_MAXSIZE=20G \
+          -e "WITH_IPU=ON" \
+          -e "WITH_COVERAGE=OFF" \
+          -e "WITH_NCCL=OFF" \
+          -e "WITH_CACHE=ON" \
+          -e "WITH_TEST=ON" \
+          -e "RUN_TEST=ON" \
+          -e "CMAKE_BUILD_TYPE=Release" \
+          -e "ON_INFER=ON" \
+          -e "PYTHON_ABI=conda-python3.7" \
+          -e "PY_VERSION=3.7" \
+          -e "POPLAR_DIR=/opt/poplar" \
+          -e "POPART_DIR=/opt/popart" \
+          -e "http_proxy=${proxy}" \
+          -e "https_proxy=${proxy}" \
+          --rm \
+          paddlepaddle/paddle:ipu-dev-2.3.0 \
+          bash -c -x '
+          bash /paddle/paddle/scripts/paddle_build.sh check_ipu_coverage'
