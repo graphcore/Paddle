@@ -54,8 +54,7 @@ function(copy TARGET)
             add_custom_command(TARGET ${TARGET} POST_BUILD
                     COMMAND mkdir -p "${dst}"
                     COMMAND cp -r "${src}" "${dst}"
-                    # COMMENT "copying ${src} -> ${dst}"
-                    )
+                    COMMENT "copying ${src} -> ${dst}")
         endif (WIN32) # not windows
     endforeach ()
 endfunction()
