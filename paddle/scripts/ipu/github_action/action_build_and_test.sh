@@ -61,14 +61,14 @@ tar czf /paddle_wheels/paddle_ipu_${GITHUB_SHA}.tar.gz /paddle_build/python/dist
 echo "create paddle wheel file: /paddle_wheels/paddle_ipu_${GITHUB_SHA}.tar.gz"
 ls -lh /paddle_wheels/paddle_ipu_${GITHUB_SHA}.tar.gz
 
-# run unittests
-cd /paddle_build/python
-# install `pytest-xdist`
-pip -V
-pip install pytest-xdist
-pytest -VV
-pytest \
-    -o cache_dir=paddle_build/pytest_cache \
-    -n=3 \
-    --maxfail=3 \
-    paddle/fluid/tests/unittests/ipu/
+# # run unittests
+# cd /paddle_build/python
+# # install `pytest-xdist`
+# pip -V
+# pip install pytest-xdist
+# pytest -VV
+# pytest \
+#     -o cache_dir=paddle_build/pytest_cache \
+#     -n=3 \
+#     --maxfail=3 \
+#     paddle/fluid/tests/unittests/ipu/
