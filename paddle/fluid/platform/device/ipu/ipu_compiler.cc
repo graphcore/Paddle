@@ -474,6 +474,7 @@ void Compiler::LowerOptimizer(const Scope* scope) {
         auto adam_mode =
             AdamModeFromStr(adam_mode_, ipu_strategy_->use_no_bias_optimizer);
         auto weight_decay_mode_ = ipu_strategy_->weight_decay_mode;
+        auto scaled_optimizer_state_ = ipu_strategy_->scaled_optimizer_state;
         if (weight_decay_mode_.empty()) {
           weight_decay_mode_ = BOOST_GET_CONST(
               std::string, op_desc->GetAttr("weight_decay_mode"));
@@ -492,7 +493,7 @@ void Compiler::LowerOptimizer(const Scope* scope) {
             auto optimizer_instance = std::make_unique<popart::Adam>(
                 optimizer_value, adam_mode, weight_decay_mode,
                 popart::DataType::UNDEFINED, accl1_type, accl2_type,
-                clip_norm_settings);
+                clip_norm_settings, scaled_optimizer_state_);
             for (int i = 0; i < weight_decay_vars.size(); i++) {
               optimizer_instance->insertSpecific(
                   weight_decay_vars[i],
@@ -511,7 +512,7 @@ void Compiler::LowerOptimizer(const Scope* scope) {
                 popart::OptimizerValue(loss_scaling, true),
                 popart::OptimizerValue(mwn, true), adam_mode, weight_decay_mode,
                 popart::DataType::UNDEFINED, accl1_type, accl2_type,
-                clip_norm_settings);
+                clip_norm_settings, scaled_optimizer_state_);
           }
         };
         if (adam_mode == popart::AdamMode::Lamb) {
@@ -525,7 +526,8 @@ void Compiler::LowerOptimizer(const Scope* scope) {
           auto eval_optimizer = std::make_unique<popart::Adam>(
               optimizer_value, adam_mode, weight_decay_mode,
               popart::DataType::UNDEFINED, popart::DataType::FLOAT,
-              popart::DataType::FLOAT, clip_norm_settings);
+              popart::DataType::FLOAT, clip_norm_settings,
+              scaled_optimizer_state_);
           for (int i = 0; i < weight_decay_vars.size(); i++) {
             eval_optimizer->insertSpecific(weight_decay_vars[i],
                                            {{"weightDecay", {0.0, false}}});
@@ -542,7 +544,8 @@ void Compiler::LowerOptimizer(const Scope* scope) {
           auto eval_optimizer = std::make_unique<popart::Adam>(
               optimizer_value, adam_mode, weight_decay_mode,
               popart::DataType::UNDEFINED, popart::DataType::FLOAT,
-              popart::DataType::FLOAT, clip_norm_settings);
+              popart::DataType::FLOAT, clip_norm_settings,
+              scaled_optimizer_state_);
           for (int i = 0; i < weight_decay_vars.size(); i++) {
             eval_optimizer->insertSpecific(weight_decay_vars[i],
                                            {{"weightDecay", {0.0, false}}});
@@ -558,7 +561,8 @@ void Compiler::LowerOptimizer(const Scope* scope) {
               popart::OptimizerValue(loss_scaling, true),
               popart::OptimizerValue(mwn, true), adam_mode, weight_decay_mode,
               popart::DataType::UNDEFINED, popart::DataType::FLOAT,
-              popart::DataType::FLOAT, clip_norm_settings);
+              popart::DataType::FLOAT, clip_norm_settings,
+              scaled_optimizer_state_);
         }
       } else if (type == "adaptive") {
         auto alpha = BOOST_GET_CONST(float, op_desc->GetAttr("alpha"));

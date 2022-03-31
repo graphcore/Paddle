@@ -54,6 +54,9 @@ class IpuStrategy {
   // Enable distributed computing for POD128 or POD256
   bool enable_distribution = false;
 
+  // Enable Scaled optimizer state only for Adam and Lamb
+  bool scaled_optimizer_state = false;
+
   // Number ipus total needed, local_replica * ipu_per_replica
   int num_ipus = 1;
 
