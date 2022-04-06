@@ -99,7 +99,7 @@ Node *pool2d_handler(Graph *graph, Node *node) {
     auto adaptive = BOOST_GET_CONST(bool, op->GetAttr("adaptive"));
     if (adaptive) {
       auto ksize = BOOST_GET_CONST(std::vector<int>, op->GetAttr("ksize"));
-      if (ksize[0] != 1 or ksize[1] != 1) {
+      if (ksize[0] != 1 || ksize[1] != 1) {
         PADDLE_THROW(platform::errors::InvalidArgument(
             "Only support pool_size=1 with adaptive mode."));
       }
@@ -177,7 +177,7 @@ Node *pool2d_handler(Graph *graph, Node *node) {
 Node *max_pool2d_with_index_handler(Graph *graph, Node *node) {
   auto *op = node->Op();
   auto ksize = BOOST_GET_CONST(std::vector<int>, op->GetAttr("ksize"));
-  if (ksize[0] != 1 or ksize[1] != 1) {
+  if (ksize[0] != 1 || ksize[1] != 1) {
     PADDLE_THROW(platform::errors::InvalidArgument(
         "Only support pool_size=1 with adaptive mode."));
   }

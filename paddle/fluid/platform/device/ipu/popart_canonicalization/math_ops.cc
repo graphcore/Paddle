@@ -166,7 +166,7 @@ Node *scale_handler(Graph *graph, Node *node) {
                          static_cast<int>(framework::proto::VarType::FP32));
 
   Node *result = nullptr;
-  if (!op->Inputs().at("ScaleTensor").empty()) {
+  if (!op->Input("ScaleTensor").empty()) {
     auto scale = GetInputVarNode("ScaleTensor", node);
     if (is_float_equal(bias_, 0.0)) {
       result = CreateBaseOp(graph, node, "popart_mul",
