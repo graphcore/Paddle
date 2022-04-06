@@ -22,7 +22,7 @@ std::vector<std::vector<int64_t>> InferShape_NllLoss(
     std::vector<int64_t> x_shape,
     std::vector<int64_t> y_shape,
     const int& reduction,
-    const int& ignoreIndex,
+    const std::string& ignoreIndex,
     const bool& inputIsLogProbability) {
   // 0: sum, 1: mean, 2: none
   if (reduction == 2) {
@@ -41,7 +41,7 @@ PD_BUILD_OP(custom_nll_loss)
     .Inputs({"X", "Y"})
     .Outputs({"Out"})
     .Attrs({"reduction: int",
-            "ignoreIndex: int",
+            "ignoreIndex: std::string",
             "inputIsLogProbability: bool"})
     .SetKernelFn(PD_KERNEL(Kernel_Function))
     .SetInferShapeFn(PD_INFER_SHAPE(InferShape_NllLoss))
