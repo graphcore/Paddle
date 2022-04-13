@@ -26,17 +26,21 @@ jobs:
         with:
           source_repo: "PaddlePaddle/Paddle"
           source_branch: "develop"
-          destination_branch: develop
+          destination_branch: develop_${{ github.sha }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: set date env variable
+        run: echo "PR_DATE=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
 
       - uses: gglin001/pull-request@v2
         name: Create pull request
         with:
-          source_branch: develop
+          source_branch: develop_${{ github.sha }}
           destination_branch: develop-ipu
-          pr_title: "[AUTO PR] Pulling develop into develop-ipu"
+          pr_title: "[AUTO PR] Pulling develop into develop-ipu [${{ env.PR_DATE }}]"
           # pr_body: ":crown: *An automated PR*"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_PAT_GGLIN002 }}
+          pr_label: "AUTO PR"
 
       - name: clean space
         run: |
