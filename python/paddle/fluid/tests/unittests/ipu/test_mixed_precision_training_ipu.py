@@ -1,4 +1,4 @@
-#  Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#  Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ import numpy as np
 import paddle
 import paddle.static
 import paddle.nn.functional as F
-from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest, ExecutionMode
+from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest, ExecutionModeFull
 
 
-@unittest.skipIf(True, "not support mixed precision yet")
+@unittest.skipIf(not paddle.is_compiled_with_ipu(),
+                 "core is not compiled with IPU")
 class TestBase(IPUOpTest):
     def setUp(self):
         self.set_atol()
@@ -52,12 +53,11 @@ class TestBase(IPUOpTest):
         self.feed_shape = [x.shape for x in self.feed_fp32.values()]
         self.feed_list = list(self.feed_fp32.keys())
 
-    def dtype_check(self, program):
+    def dtype_check(self, program, to_fp16_var_names):
         block = program.global_block()
-        assert (block.var("conv2d_0.w_0").dtype, paddle.float16)
-        assert (block.var("conv2d_0.w_0@GRAD").dtype, paddle.float16)
-        assert (block.var("conv2d_0.w_0_moment1_0").dtype, paddle.float32)
-        assert (block.var("conv2d_0.w_0_beta2_pow_acc_0").dtype, paddle.float32)
+        assert len(to_fp16_var_names) > 0
+        for var_name in to_fp16_var_names:
+            assert (block.var(var_name).dtype, paddle.float16)
 
     def _test_base(self, exec_mode):
         generator = paddle.fluid.unique_name.UniqueNameGenerator()
@@ -70,37 +70,60 @@ class TestBase(IPUOpTest):
         with paddle.fluid.unique_name.guard(generator):
             with paddle.static.scope_guard(scope):
                 with paddle.static.program_guard(main_prog, startup_prog):
-                    data = paddle.static.data(
+                    x = paddle.static.data(
                         name=self.feed_list[0],
                         shape=self.feed_shape[0],
                         dtype='float32')
 
-                    conv2d = paddle.static.nn.conv2d(
-                        input=data, num_filters=6, filter_size=3)
-                    conv2d1 = paddle.static.nn.conv2d(
-                        input=conv2d, num_filters=6, filter_size=3)
+                    # using fp32
+                    x = paddle.static.nn.conv2d(
+                        input=x, num_filters=3, filter_size=3)
+                    x = paddle.static.nn.batch_norm(x, act='relu')
+                    x = F.max_pool2d(x, kernel_size=2, stride=2)
 
-                    pool_0 = F.max_pool2d(conv2d1, kernel_size=2, stride=2)
-                    bn = paddle.static.nn.batch_norm(input=pool_0, act="relu")
-                    pool = F.max_pool2d(bn, kernel_size=2, stride=2)
-                    loss = paddle.mean(pool)
+                    # using fp16
+                    with paddle.static.amp.fp16_guard():
+                        x = paddle.static.nn.conv2d(
+                            input=x, num_filters=6, filter_size=3)
+                        x = paddle.static.nn.batch_norm(x, act='relu')
+                        x = F.max_pool2d(x, kernel_size=2, stride=2)
+
+                    # using fp32
+                    x = paddle.static.nn.fc(x, size=10)
+                    loss = paddle.mean(x)
+
+                    # optimizer
                     optimizer = paddle.optimizer.Adam(learning_rate=1e-2)
                     optimizer.minimize(loss, startup_prog)
+                    fetch_list = [loss.name]
 
-                fetch_list = [loss.name]
+                # cast model to fp16
+                if exec_mode == ExecutionModeFull.IPU_MIXED_PRECISION:
+                    to_fp16_var_names = paddle.static.amp.cast_model_to_fp16(
+                        main_prog,
+                        self.amp_list,
+                        keep_fp32_input=False,
+                        keep_fp32_output=False)
+                    self.dtype_check(main_prog, to_fp16_var_names)
 
-                if exec_mode == ExecutionMode.CPU_FP32:
+                if exec_mode == ExecutionModeFull.CPU_FP32:
                     place = paddle.CPUPlace()
                 else:
                     place = paddle.IPUPlace()
-
                 exe = paddle.static.Executor(place)
                 exe.run(startup_prog)
 
-                if exec_mode != ExecutionMode.CPU_FP32:
+                # cast parameters to fp16
+                if exec_mode == ExecutionModeFull.IPU_MIXED_PRECISION:
+                    paddle.static.amp.cast_parameters_to_fp16(
+                        paddle.CPUPlace(),
+                        main_prog,
+                        to_fp16_var_names=to_fp16_var_names)
+
+                if exec_mode != ExecutionModeFull.CPU_FP32:
                     ipu_strategy = paddle.static.IpuStrategy()
                     ipu_strategy.set_graph_config(is_training=self.is_training)
-                    if exec_mode == ExecutionMode.IPU_POPART_FP16:
+                    if exec_mode == ExecutionModeFull.IPU_POPART_FP16:
                         ipu_strategy.set_precision_config(enable_fp16=True)
                     program = paddle.static.IpuCompiledProgram(
                         main_prog, ipu_strategy=ipu_strategy).compile(
@@ -109,9 +132,6 @@ class TestBase(IPUOpTest):
                     program = main_prog
 
                 feed = self.feed_fp32
-                if exec_mode > ExecutionMode.IPU_FP32:
-                    feed = self.feed_fp16
-
                 result = []
                 for i in range(self.epoch):
                     out = exe.run(program, feed=feed, fetch_list=fetch_list)
@@ -120,8 +140,10 @@ class TestBase(IPUOpTest):
 
     def test_base(self):
         output_dict = {}
-        for mode in ExecutionMode:
-            if mode > ExecutionMode.IPU_FP32 and not self.fp16_enabled:
+        for mode in ExecutionModeFull:
+            if mode == ExecutionModeFull.IPU_POPART_FP16:
+                continue
+            if mode > ExecutionModeFull.IPU_FP32 and not self.fp16_enabled:
                 break
             output_dict[mode] = self._test_base(mode).flatten()
 
