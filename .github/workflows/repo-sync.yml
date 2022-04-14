@@ -1,4 +1,4 @@
-# auto sync PaddlePaddle/Paddle:develop to develop and create pr to develop-ipu
+# auto sync PaddlePaddle/Paddle:develop to develop and create pr to current branch
 # ref: https://github.com/repo-sync/repo-sync
 
 on:
@@ -36,8 +36,8 @@ jobs:
         name: Create pull request
         with:
           source_branch: develop_${{ github.sha }}
-          destination_branch: develop-ipu
-          pr_title: "[AUTO PR] Pulling develop into develop-ipu [${{ env.PR_DATE }}]"
+          destination_branch: ${{ github.ref_name }}
+          pr_title: "[AUTO PR] Pulling develop into ${{ github.ref_name }} [${{ env.PR_DATE }}]"
           # pr_body: ":crown: *An automated PR*"
           github_token: ${{ secrets.CI_PAT_GGLIN002 }}
           pr_label: "AUTO PR"
