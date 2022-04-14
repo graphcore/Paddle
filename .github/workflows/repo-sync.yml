@@ -26,7 +26,7 @@ jobs:
         with:
           source_repo: "PaddlePaddle/Paddle"
           source_branch: "develop"
-          destination_branch: develop_${{ github.sha }}
+          destination_branch: develop_to_${{ github.ref_name }}_${{ github.sha }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: set date env variable
@@ -35,9 +35,9 @@ jobs:
       - uses: gglin001/pull-request@v2
         name: Create pull request
         with:
-          source_branch: develop_${{ github.sha }}
+          source_branch: develop_to_${{ github.ref_name }}_${{ github.sha }}
           destination_branch: ${{ github.ref_name }}
-          pr_title: "[AUTO PR] Pulling develop into ${{ github.ref_name }} [${{ env.PR_DATE }}]"
+          pr_title: "[AUTO PR] Pulling [develop] into [${{ github.ref_name }}] [${{ env.PR_DATE }}]"
           # pr_body: ":crown: *An automated PR*"
           github_token: ${{ secrets.CI_PAT_GGLIN002 }}
           pr_label: "AUTO PR"
