@@ -425,7 +425,9 @@ def cast_model_to_fp16(program,
                 keep_fp32_ops.add(op)
                 continue  # processed below
             for in_name in op.input_names:
-                if keep_fp32_input and _keep_fp32_input(op, in_name):
+                # for ipu, all inputs must be converted to fp16
+                if not core.is_compiled_with_ipu() and _keep_fp32_input(
+                        op, in_name):
                     continue
                 for in_var_name in op.input(in_name):
                     in_var = None
@@ -453,7 +455,9 @@ def cast_model_to_fp16(program,
                         format(op.type, in_var_name, in_var.dtype))
 
             for out_name in op.output_names:
-                if keep_fp32_output and _keep_fp32_output(op, out_name):
+                # for ipu, all outputs must be converted to fp16
+                if not core.is_compiled_with_ipu() and _keep_fp32_output(
+                        op, out_name):
                     continue
                 for out_var_name in op.output(out_name):
                     out_var = None
