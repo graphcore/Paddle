@@ -285,42 +285,43 @@ void Compiler::LowerConstants(const Scope* scope) {
 
 void Compiler::LowerWeights(const Scope* scope) {
   VLOG(10) << "enter Compiler::LowerWeights";
-  // at this step, the graph doesn't contains optimizer related states
+  // At this step, the graph doesn't contains optimizer related states
   for (auto id : graph_helper_->sorted_vars_id) {
     auto* node = graph_helper_->nodes_id_map[id];
-    if (node->IsVar() && !node->IsCtrlVar() && node->Var()) {
-      if (node->Var()->Persistable() && node->inputs.empty()) {
-        auto var_name = node->Var()->Name();
-        if (resources_->tensors.count(var_name) != 0) {
-          VLOG(10) << "found existed one, skip lowering Weight: " << var_name;
-          continue;
-        }
-        if (var_name.rfind("learning_rate", 0) == 0) {
-          VLOG(10) << "skip learning_rate_var: " << var_name;
-          continue;
-        }
-        VLOG(10) << "lowering weight: " << var_name;
-
-        auto var = scope->FindVar(var_name);
-        if (var) {
-          auto tensor = var->Get<framework::LoDTensor>();
-          auto dtype = PdDataType2PopartType(tensor.dtype());
-          auto shape = std::vector<int64_t>();
-          for (size_t i = 0; i < tensor.dims().size(); ++i) {
-            shape.push_back(tensor.dims().at(i));
-          }
-          popart::TensorInfo tensor_info(dtype, shape);
-          popart::ConstVoidData const_data{tensor.data(), tensor_info};
-          if (!node->outputs.empty()) {
-            auto op_node = node->outputs[0];
-            PushNameScope(op_node->Op());
-            popart::TensorId result =
-                builder_->addInitializedInputTensor(const_data, var_name);
-            PopNameScope(op_node->Op());
-            resources_->tensors.emplace(var_name, result);
-            resources_->weights.push_back(var_name);
-          }
-        }
+    // Weights are var node and Persistable
+    if (node->IsVar() && !node->IsCtrlVar() && node->Var() &&
+        node->Var()->Persistable()) {
+      // Weights are Parameter in training mode
+      if (ipu_strategy_->is_training && !node->Var()->IsParameter()) {
+        continue;
+      }
+      auto var_name = node->Var()->Name();
+      // Some op has same input and output tensor, like batchnorm
+      if (resources_->tensors.count(var_name) != 0) {
+        VLOG(10) << "found existed one, skip lowering Weight: " << var_name;
+        continue;
+      }
+      VLOG(10) << "lowering weight: " << var_name;
+      auto var = scope->FindVar(var_name);
+      PADDLE_ENFORCE_NOT_NULL(
+          var, platform::errors::NotFound("Tensor %s is not found in the scope",
+                                          var_name));
+      auto tensor = var->Get<framework::LoDTensor>();
+      auto dtype = PdDataType2PopartType(tensor.dtype());
+      auto shape = std::vector<int64_t>();
+      for (size_t i = 0; i < tensor.dims().size(); ++i) {
+        shape.push_back(tensor.dims().at(i));
+      }
+      popart::TensorInfo tensor_info(dtype, shape);
+      popart::ConstVoidData const_data{tensor.data(), tensor_info};
+      if (!node->outputs.empty()) {
+        auto op_node = node->outputs[0];
+        PushNameScope(op_node->Op());
+        popart::TensorId result =
+            builder_->addInitializedInputTensor(const_data, var_name);
+        PopNameScope(op_node->Op());
+        resources_->tensors.emplace(var_name, result);
+        resources_->weights.push_back(var_name);
       }
     }
   }
