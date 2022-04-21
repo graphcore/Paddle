@@ -386,11 +386,7 @@ def fp16_guard():
         yield
 
 
-def cast_model_to_fp16(program,
-                       amp_lists=None,
-                       use_fp16_guard=True,
-                       keep_fp32_input=True,
-                       keep_fp32_output=True):
+def cast_model_to_fp16(program, amp_lists=None, use_fp16_guard=True):
     """
     Traverse all ops in the whole model and set their inputs and outputs
     to the fp16 data type. This function will do some special process for
@@ -401,10 +397,6 @@ def cast_model_to_fp16(program,
         amp_lists (AutoMixedPrecisionLists): An AutoMixedPrecisionLists object.
         use_fp16_guard(bool): Determine whether to use `fp16_guard` when
                               constructing the program. Default True.
-        keep_fp32_input(bool): Determine whether to use FP32 input for some 
-                                special ops.  Default True.
-        keep_fp32_output(bool): Determine whether to use FP32 output for some 
-                                 special ops. Default True.
     """
 
     if amp_lists is None:
