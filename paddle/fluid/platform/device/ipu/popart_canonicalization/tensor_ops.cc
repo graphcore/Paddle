@@ -37,6 +37,7 @@ Node *fill_constant_handler(Graph *graph, Node *node) {
   }
   Attribute value;
   switch (dtype_) {
+    case framework::proto::VarType::FP16:
     case framework::proto::VarType::FP32:
       value = std::vector<float>(size, value_);
       break;
@@ -439,6 +440,7 @@ Node *assign_value_handler(Graph *graph, Node *node) {
       value_name = "int32_values";
       values = BOOST_GET_CONST(std::vector<int>, op->GetAttr(value_name));
       break;
+    case framework::proto::VarType::FP16:
     case framework::proto::VarType::FP32:
       value_name = "fp32_values";
       values = BOOST_GET_CONST(std::vector<float>, op->GetAttr(value_name));
@@ -472,6 +474,7 @@ Node *fill_any_like_handler(Graph *graph, Node *node) {
 
   Attribute out_value;
   switch (x_dtype) {
+    case framework::proto::VarType::FP16:
     case framework::proto::VarType::FP32:
       out_value = std::vector<float>(size, value);
       break;

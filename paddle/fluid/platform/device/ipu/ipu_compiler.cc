@@ -718,13 +718,7 @@ std::string Compiler::GetFP16ModelProto() {
   return graph_transformer.getModelProto();
 }
 
-std::string Compiler::GetModelProto() {
-  if (ipu_strategy_->enable_fp16) {
-    return GetFP16ModelProto();
-  } else {
-    return builder_->getModelProto();
-  }
-}
+std::string Compiler::GetModelProto() { return builder_->getModelProto(); }
 
 void Compiler::SaveModelProto(const std::string& path) {
   builder_->saveModelProto(path);
