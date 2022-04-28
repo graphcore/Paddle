@@ -23,7 +23,9 @@ namespace {
 
 Node *fill_constant_handler(Graph *graph, Node *node) {
   auto *op = node->Op();
-  if (!op->Input("ShapeTensor").empty()) {
+  auto op_inputs = op->Inputs();
+  if (op_inputs.find("ShapeTensor") != op_inputs.end() &&
+      !op->Input("ShapeTensor").empty()) {
     PADDLE_THROW(
         platform::errors::Unimplemented("op fill_constant with ShapeTensor"));
   }
