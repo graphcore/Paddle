@@ -99,11 +99,14 @@ RUN wget https://paddle-ci.cdn.bcebos.com/clang+llvm-3.8.0-x86_64-linux-gnu-ubun
     cp -r * /usr/local && cd .. && rm -rf clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-16.04 && rm -rf clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz 
 
 # install Paddlepaddle(IPU)
-COPY ./ /Paddle-fork
-RUN cd /Paddle-fork
+WORKDIR /opt
+RUN git clone -b mlperf-v2.0-tmp https://github.com/graphcore/Paddle-fork.git
+WORKDIR /opt/Paddle-fork
+RUN ls
 RUN mkdir -p build
 RUN cmake -DPYTHON_EXECUTABLE=/opt/conda/bin/python3.7 -DCMAKE_INSTALL_PREFIX="install" \
-    -DWITH_PYTHON=ON -DWITH_IPU=ON -DPOPLAR_DIR=/opt/poplar \
+    -DWITH_PYTHON=ON -DWITH_GLOO=ON -DWITH_IPU=ON -DPOPLAR_DIR=/opt/poplar \
+    -DON_INFER=ON \
     -DPOPART_DIR=/opt/popart -G "Unix Makefiles" -H`pwd` -B`pwd`/build
 RUN cmake --build `pwd`/build --config Release --target paddle_python -j$(nproc)
 RUN pip3 install build/python/dist/* --force-reinstall
