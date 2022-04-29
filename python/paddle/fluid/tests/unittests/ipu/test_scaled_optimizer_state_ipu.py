@@ -24,23 +24,74 @@ from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest
 class TestBase(IPUOpTest):
     def setUp(self):
         self.set_atol()
+        self.set_training()
         self.set_data_feed()
         self.set_feed_attr()
         self.set_attrs()
 
-    def set_atol(self):
-        self.atol = 1e-6
+    def set_training(self):
+        self.is_training = True
+        self.epoch = 100
 
     def set_data_feed(self):
-        self.feed = {
-            "image": np.random.uniform(size=[1, 3, 10, 10]).astype('float32'),
-        }
+        data = np.random.uniform(size=[1, 3, 10, 10]).astype('float32')
+        self.feed_fp32 = {"image": data.astype(np.float32)}
+        self.feed_fp16 = {"image": data.astype(np.float16)}
 
     def set_feed_attr(self):
-        self.feed_shape = [x.shape for x in self.feed.values()]
-        self.feed_list = list(self.feed.keys())
-        self.feed_dtype = [x.dtype for x in self.feed.values()]
+        self.feed_shape = [x.shape for x in self.feed_fp32.values()]
+        self.feed_list = list(self.feed_fp32.keys())
+        self.feed_dtype = [x.dtype for x in self.feed_fp32.values()]
 
+    def set_attrs(self):
+        self.attrs = {
+            "optimizer": 'lamb',
+            "weight_decay": 0.0,
+            "scaled_optimizer_state": True
+        }
+
+    @IPUOpTest.static_graph
+    def build_model(self):
+        image = paddle.static.data(
+            name='image', shape=[1, 3, 10, 10], dtype='float32')
+        conv1 = paddle.static.nn.conv2d(
+            image, num_filters=3, filter_size=3, bias_attr=False)
+        loss = paddle.mean(conv1)
+
+        weight_decay = self.attrs['weight_decay']
+        opt = paddle.optimizer.Adam(
+            learning_rate=1e-1, weight_decay=weight_decay)
+        if self.attrs['optimizer'] == 'lamb':
+            opt = paddle.optimizer.Lamb(
+                learning_rate=1e-1, lamb_weight_decay=weight_decay)
+        opt.minimize(loss)
+        self.feed_list = [image.name]
+        self.fetch_list = [loss.name]
+
+    def run_model(self, exec_mode):
+        ipu_strategy = paddle.static.IpuStrategy()
+        ipu_strategy.set_graph_config(is_training=self.is_training)
+        if self.is_ipu_mode(exec_mode):
+            if "use_no_bias_optimizer" in self.attrs.keys():
+                ipu_strategy.set_options({
+                    "use_no_bias_optimizer": self.attrs["use_no_bias_optimizer"]
+                })
+            if "scaled_optimizer_state" in self.attrs.keys():
+                ipu_strategy.set_options({
+                    "scaled_optimizer_state":
+                    self.attrs["scaled_optimizer_state"]
+                })
+        self.run_op_test(exec_mode, ipu_strategy=ipu_strategy)
+
+    def test(self):
+        for m in IPUOpTest.ExecutionMode:
+            if not self.skip_mode(m):
+                self.build_model()
+                self.run_model(m)
+        self.check()
+
+
+class TestScaledAdam(TestBase):
     def set_attrs(self):
         self.attrs = {
             "optimizer": 'adam',
@@ -48,72 +99,10 @@ class TestBase(IPUOpTest):
             "scaled_optimizer_state": True
         }
 
-    def _test_optimizer(self, run_ipu=True):
-        scope = paddle.static.Scope()
-        main_prog = paddle.static.Program()
-        startup_prog = paddle.static.Program()
-        main_prog.random_seed = self.SEED
-        startup_prog.random_seed = self.SEED
-        np.random.seed(self.SEED)
-
-        with paddle.static.scope_guard(scope):
-            with paddle.static.program_guard(main_prog, startup_prog):
-                image = paddle.static.data(
-                    name='image', shape=[1, 3, 10, 10], dtype='float32')
-                conv1 = paddle.static.nn.conv2d(
-                    image, num_filters=3, filter_size=3, bias_attr=False)
-                loss = paddle.mean(conv1)
-
-                weight_decay = self.attrs['weight_decay']
-                opt = paddle.optimizer.Adam(
-                    learning_rate=1e-1, weight_decay=weight_decay)
-                if self.attrs['optimizer'] == 'lamb':
-                    opt = paddle.optimizer.Lamb(
-                        learning_rate=1e-1, lamb_weight_decay=weight_decay)
-                opt.minimize(loss)
-
-            if run_ipu:
-                place = paddle.IPUPlace()
-            else:
-                place = paddle.CPUPlace()
-            exe = paddle.static.Executor(place)
-            exe.run(startup_prog)
-
-            if run_ipu:
-                feed_list = [image.name]
-                fetch_list = [loss.name]
-                ipu_strategy = paddle.static.IpuStrategy()
-                ipu_strategy.set_graph_config(is_training=True)
-                if "use_no_bias_optimizer" in self.attrs.keys():
-                    ipu_strategy.set_options({
-                        "use_no_bias_optimizer":
-                        self.attrs["use_no_bias_optimizer"]
-                    })
-                if "scaled_optimizer_state" in self.attrs.keys():
-                    ipu_strategy.set_options({
-                        "scaled_optimizer_state":
-                        self.attrs["scaled_optimizer_state"]
-                    })
-
-                program = paddle.static.IpuCompiledProgram(
-                    main_prog, ipu_strategy=ipu_strategy).compile(feed_list,
-                                                                  fetch_list)
-            else:
-                program = main_prog
-
-            result = []
-            for epoch in range(100):
-                loss_res = exe.run(program, feed=self.feed, fetch_list=[loss])
-                result.append(loss_res)
-
-            return np.array(result)
-
-    def test(self):
-        # cpu and ipu dimenstion mismatch, cpu:(100, 1, 1), ipu:(100, 1)
-        ipu_loss = self._test_optimizer(True).flatten()
-        cpu_loss = self._test_optimizer(False).flatten()
-
-        self.assertTrue(np.allclose(ipu_loss, cpu_loss, atol=self.atol))
+    def set_atol(self):
+        super().set_atol()
+        self.atol = 1e-5
+        self.rtol = 1e-5
 
 
 @unittest.skip('cpu do not support AdamNoBias')
@@ -123,15 +112,6 @@ class TestScaledAdamNoBias(TestBase):
             "optimizer": 'adam',
             "weight_decay": 0.0,
             "use_no_bias_optimizer": True,
-            "scaled_optimizer_state": True
-        }
-
-
-class TestScaledLamb(TestBase):
-    def set_attrs(self):
-        self.attrs = {
-            "optimizer": 'lamb',
-            "weight_decay": 0.0,
             "scaled_optimizer_state": True
         }
 
