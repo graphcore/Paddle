@@ -175,9 +175,21 @@ Node *squeeze_handler(Graph *graph, Node *node) {
 Node *cast_handler(Graph *graph, Node *node) {
   auto *op = node->Op();
   auto otype = BOOST_GET_CONST(int, op->GetAttr("out_dtype"));
-  auto new_node_cast =
-      CreateCast(graph, node, node->inputs, node->outputs, otype);
-  return new_node_cast;
+  auto new_node = CreateCast(graph, node, node->inputs, node->outputs, otype);
+  // Cast op created in mixed-precison has no pipline attrs
+  auto &prev_nodes = node->inputs.front()->inputs;
+  if (!prev_nodes.empty()) {
+    auto *prev_op = prev_nodes.front()->Op();
+    if (!new_node->Op()->HasAttr(sIpuIndexAttr) &&
+        prev_op->HasAttr(sIpuIndexAttr)) {
+      CopyOpAttr(sIpuIndexAttr, prev_op, new_node->Op());
+    }
+    if (!new_node->Op()->HasAttr(sIpuStageAttr) &&
+        prev_op->HasAttr(sIpuStageAttr)) {
+      CopyOpAttr(sIpuStageAttr, prev_op, new_node->Op());
+    }
+  }
+  return new_node;
 }
 
 Node *lookup_table_op_handler(Graph *graph, Node *node,

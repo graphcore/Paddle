@@ -29,6 +29,7 @@ class TestBase(IPUOpTest):
         self.set_training()
         self.set_data_feed()
         self.set_feed_attr()
+        self.set_attrs()
 
     def set_atol(self):
         self.atol = 2e-6
@@ -47,6 +48,12 @@ class TestBase(IPUOpTest):
     def set_feed_attr(self):
         self.feed_shape = [x.shape for x in self.feed_fp32.values()]
         self.feed_list = list(self.feed_fp32.keys())
+
+    def set_attrs(self):
+        self.num_ipus = 1
+        self.enable_pipelining = False
+        self.enable_manual_shard = False
+        self.batches_per_step = 1
 
     def dtype_check(self, program, to_fp16_var_names):
         block = program.global_block()
@@ -104,7 +111,13 @@ class TestBase(IPUOpTest):
 
         if self.is_ipu_mode(exec_mode):
             ipu_strategy = paddle.static.IpuStrategy()
-            ipu_strategy.set_graph_config(is_training=self.is_training)
+            ipu_strategy.set_graph_config(
+                is_training=self.is_training,
+                num_ipus=self.num_ipus,
+                enable_manual_shard=self.enable_manual_shard)
+            ipu_strategy.set_pipelining_config(
+                enable_pipelining=self.enable_pipelining,
+                batches_per_step=self.batches_per_step)
             program = paddle.static.IpuCompiledProgram(
                 self.main_prog, ipu_strategy=ipu_strategy).compile(
                     self.feed_list, self.fetch_list)
@@ -124,6 +137,56 @@ class TestBase(IPUOpTest):
             self.build_model()
             self.run_model(m)
         self.check()
+
+
+class TestPipline(TestBase):
+    @IPUOpTest.static_graph
+    def build_model(self, exec_mode):
+        feed_shape = list(self.feed_shape[0])
+        if self.is_ipu_mode(exec_mode):
+            feed_shape[0] = 1
+        x = paddle.static.data(
+            name=self.feed_list[0], shape=feed_shape, dtype='float32')
+
+        with paddle.static.ipu_shard_guard(index=0, stage=0):
+            # using fp32
+            x = paddle.static.nn.conv2d(input=x, num_filters=3, filter_size=3)
+            x = paddle.static.nn.batch_norm(x, act='relu')
+            x = F.max_pool2d(x, kernel_size=2, stride=2)
+
+        with paddle.static.ipu_shard_guard(index=1, stage=1):
+            # using fp16
+            with paddle.static.amp.fp16_guard():
+                x = paddle.static.nn.conv2d(
+                    input=x, num_filters=6, filter_size=3)
+                x = paddle.static.nn.batch_norm(x, act='relu')
+                x = F.max_pool2d(x, kernel_size=2, stride=2)
+
+        with paddle.static.ipu_shard_guard(index=2, stage=2):
+            # using fp32
+            x = paddle.static.nn.fc(x, size=10)
+            loss = paddle.mean(x)
+
+        # optimizer
+        optimizer = paddle.optimizer.Adam(learning_rate=1e-2)
+        optimizer.minimize(loss, self.startup_prog)
+        self.fetch_list = [loss.name]
+
+    def set_data_feed(self):
+        data = np.random.uniform(size=[5, 10, 27, 27])
+        self.feed_fp32 = {"in_0": data.astype(np.float32)}
+
+    def set_attrs(self):
+        self.num_ipus = 3
+        self.enable_pipelining = True
+        self.enable_manual_shard = True
+        self.batches_per_step = 5
+
+    def test(self):
+        for m in IPUOpTest.ExecutionMode:
+            self.build_model(m)
+            self.run_model(m)
+        # skip check results
 
 
 if __name__ == "__main__":
