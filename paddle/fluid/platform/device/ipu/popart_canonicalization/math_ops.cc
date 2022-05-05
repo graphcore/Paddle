@@ -41,7 +41,7 @@ Node *pow_handler(Graph *graph, Node *node) {
     // Op(pow) -> Op(Constant)->Var(const_out)->Op(Pow)
     auto value_ = BOOST_GET_CONST(float, op->GetAttr("factor"));
     auto attrs =
-        MakeConstAttrMapFromValue<float>(value_, {1}, GetOutputVarDtype(node));
+        MakeConstAttrMapFromValue<float>(value_, {1}, GetOutputVarDType(node));
 
     auto new_node_const = CreateConst(graph, node, {}, {}, attrs);
     return CreateBaseOp(graph, node, "popart_pow", {GetInputVarNode("X", node),
@@ -134,7 +134,7 @@ Node *matmul_handler(Graph *graph, Node *node) {
   } else {
     auto o_node =
         CreateBaseOp(graph, node, "popart_matmul", {x_node, y_node}, {});
-    auto attr = MakeConstAttrMapFromValue(alpha, {1}, GetOutputVarDtype(node));
+    auto attr = MakeConstAttrMapFromValue(alpha, {1}, GetOutputVarDType(node));
     auto const_node = CreateConst(graph, node, {}, {}, attr);
     return CreateBaseOp(graph, node, "popart_mul",
                         {o_node->outputs[0], const_node->outputs[0]},
@@ -317,9 +317,8 @@ Node *softmax_with_cross_entropy_handler(Graph *graph, Node *node) {
                                {}, framework::proto::VarType::INT32);
     new_cast = new_cast->outputs[0];
   }
-  auto softmax_node = CreateSoftmaxOpset11(graph, node,
-                                           {GetInputVarNode("Logits", node)},
-                                           {}, axis);
+  auto softmax_node = CreateSoftmaxOpset11(
+      graph, node, {GetInputVarNode("Logits", node)}, {}, axis);
 
   auto label_shape_ = GetInputVarNode("Label", node)->Var()->GetShape();
   if (label_shape_[label_shape_.size() - 1] != 1) {
@@ -453,7 +452,8 @@ REGISTER_HANDLER(matmul, matmul_handler);
 REGISTER_HANDLER(sum, sum_handler);
 REGISTER_HANDLER(softmax, softmax_handler);
 REGISTER_HANDLER(scale, scale_handler);
-REGISTER_HANDLER(softmax_with_cross_entropy, softmax_with_cross_entropy_handler);
+REGISTER_HANDLER(softmax_with_cross_entropy,
+                 softmax_with_cross_entropy_handler);
 REGISTER_HANDLER(cross_entropy2, cross_entropy2_handler);
 REGISTER_HANDLER(cumsum, cumsum_handler);
 REGISTER_HANDLER(matmul_v2, matmul_v2_handler);
