@@ -18,6 +18,9 @@ echo "workdir: $PWD"
 
 mkdir /paddle_build
 
+# install requirements
+pip install -r /checkout/python/requirements.txt
+
 # todo use ninja
 cmake \
     -DCMAKE_INSTALL_PREFIX:STRING=install \
