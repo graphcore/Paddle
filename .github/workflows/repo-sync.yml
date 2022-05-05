@@ -27,7 +27,7 @@ jobs:
           source_repo: "PaddlePaddle/Paddle"
           source_branch: "develop"
           destination_branch: develop_to_${{ github.ref_name }}_${{ github.sha }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_PAT_GGLIN002 }}
 
       - name: set date env variable
         run: echo "PR_DATE=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
