@@ -33,8 +33,7 @@ Node *not_equal_handler(Graph *graph, Node *node) {
       graph, node, "popart_equal",
       {GetInputVarNode("X", node), GetInputVarNode("Y", node)}, {});
   return CreateBaseOp(graph, node, "popart_logical_not",
-                      {equal_node->outputs[0]},
-                      node->outputs, {});
+                      {equal_node->outputs[0]}, node->outputs, {});
 }
 
 Node *logical_not_handler(Graph *graph, Node *node) {
