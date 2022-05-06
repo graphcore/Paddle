@@ -76,7 +76,8 @@ class IPUTest(unittest.TestCase):
         random.setstate(cls._py_rand_state)
 
     # Check if ipumodel mode is enabled
-    def use_ipumodel():
+    @classmethod
+    def use_ipumodel(cls):
         if 'POPLAR_IPUMODEL' not in os.environ:
             return False
         else:
@@ -86,7 +87,7 @@ class IPUTest(unittest.TestCase):
 
     # Decorator for static graph building
     def static_graph(builder):
-        def wrapper(self: IPUOpTest, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
             self.scope = paddle.static.Scope()
             self.main_prog = paddle.static.Program()
             self.startup_prog = paddle.static.Program()
@@ -102,7 +103,8 @@ class IPUTest(unittest.TestCase):
         return wrapper
 
     # Cast a fp32 model to a full-fp16 model
-    def cast_model_to_fp16(main_program):
+    @classmethod
+    def cast_model_to_fp16(cls, main_program):
         amp_list = paddle.static.amp.CustomOpLists()
         amp_list.unsupported_list = {}
         to_fp16_var_names = paddle.static.amp.cast_model_to_fp16(

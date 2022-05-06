@@ -57,12 +57,14 @@ struct CustomOpAttrVisitor : public boost::static_visitor<void> {
     attrs_->emplace(attr_name_, v);
   }
   void operator()(BlockDesc* desc) const {
-    PADDLE_THROW(errors::Unavailable(
-        "Unsupported calling method for `BlockDesc` type."));
+    PADDLE_THROW(platform::errors::Unavailable(
+        "Unsupported calling method for `BlockDesc` type when extracting "
+        "custom operator attributes."));
   }
   void operator()(const std::vector<BlockDesc*>& v) const {
-    PADDLE_THROW(errors::Unavailable(
-        "Unsupported calling method for `BlockDesc` type."));
+    PADDLE_THROW(platform::errors::Unavailable(
+        "Unsupported calling method for `BlockDesc` type when extracting  "
+        "custom operator attributes."));
   }
   void operator()(int64_t v) const { attrs_->emplace(attr_name_, v); }
   void operator()(const std::vector<int64_t>& v) const {
@@ -72,8 +74,9 @@ struct CustomOpAttrVisitor : public boost::static_visitor<void> {
     attrs_->emplace(attr_name_, v);
   }
   void operator()(boost::blank) const {
-    PADDLE_THROW(errors::Unavailable(
-        "Unsupported calling method for `boost::blank` type."));
+    PADDLE_THROW(platform::errors::Unavailable(
+        "Unsupported calling method for `boost::blank` type when extracting "
+        "custom operator attributes."));
   }
 };
 
@@ -107,7 +110,8 @@ struct ConstantOpAttrVisitor : public boost::static_visitor<void> {
     framework::TensorFromVector<double>(vec, tensor_);
   }
 #define RAISE_ERROR \
-  PADDLE_THROW(errors::InvalidArgument("Constant value must be a vector"))
+  PADDLE_THROW(     \
+      platform::errors::InvalidArgument("Constant value must be a vector"))
   void operator()(int v) const { RAISE_ERROR; }
   void operator()(float v) const { RAISE_ERROR; }
   void operator()(const std::string& v) const { RAISE_ERROR; }
@@ -739,7 +743,7 @@ void Compiler::PostLower(const std::vector<std::string>& tensor_ids,
   auto pd_outs = GetOpOutputs(op_desc);
   PADDLE_ENFORCE_EQ(
       pd_outs.size(), tensor_ids.size(),
-      errors::Fatal("paddle and popart op have different outputs"));
+      platform::errors::Fatal("paddle and popart op have different outputs"));
   for (int i = 0; i < tensor_ids.size(); ++i) {
     resources_->tensors.emplace(pd_outs[i], tensor_ids[i]);
   }
@@ -753,7 +757,7 @@ void Compiler::PostLower(const std::string& tensor_id, const OpDesc* op_desc) {
   auto pd_outs = GetOpOutputs(op_desc);
   PADDLE_ENFORCE_EQ(
       pd_outs.size(), 1,
-      errors::Fatal("paddle and popart op have different outputs"));
+      platform::errors::Fatal("paddle and popart op have different outputs"));
   resources_->tensors.emplace(pd_outs[0], tensor_id);
   PostLower(tensor_id, op_desc, false);
 }
