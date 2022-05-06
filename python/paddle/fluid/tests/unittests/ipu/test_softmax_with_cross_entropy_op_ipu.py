@@ -19,7 +19,6 @@ import paddle
 import paddle.static
 from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest
 import paddle.nn.functional as F
-from paddle import _C_ops
 
 
 @unittest.skipIf(not paddle.is_compiled_with_ipu(),
