@@ -544,7 +544,7 @@ void IpuStrategy::AddCustomOp(const std::string& paddle_op,
 }
 
 void IpuStrategy::SetCompilationProgressLogger(
-    const std::function<void(int, int)> logger) {
+    const std::function<void(int, int)>& logger) {
   popart_options.compilationProgressLogger = logger;
 }
 
