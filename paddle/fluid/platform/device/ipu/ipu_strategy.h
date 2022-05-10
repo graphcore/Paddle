@@ -123,8 +123,7 @@ class IpuStrategy {
                                           const std::vector<int> &values);
   void AddCustomOp(const std::string &paddle_op, const std::string &popart_op,
                    const std::string &domain, int version);
-  void SetCompilationProgressLogger(
-      const std::function<void(int, int)> &logger);
+  void SetCompilationProgressLogger(const std::function<void(int, int)> logger);
 
   std::string GetOption(const std::string &);
   std::vector<std::string> GetVectorOption(const std::string &);
