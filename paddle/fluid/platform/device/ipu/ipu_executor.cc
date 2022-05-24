@@ -88,11 +88,7 @@ class PdIArray final : public popart::IArray {
 
 }  // namespace
 
-Executor::~Executor() {
-  Detach();
-  session_.reset();
-  executor_resources_.reset();
-}
+Executor::~Executor() { Reset(); }
 
 void Executor::Prepare(const std::string &proto) {
   VLOG(10) << "enter Executor::Prepare";
@@ -209,7 +205,7 @@ void Executor::Run(const std::vector<const Tensor *> &inputs,
         new_lr = ipu_strategy_->lr;
       } else {
         new_lr =
-          GetSingleVarFromScope<float>(scope_, compiler_resources_->lr_var);
+            GetSingleVarFromScope<float>(scope_, compiler_resources_->lr_var);
       }
       VLOG(10) << "New Lr: " << new_lr;
       optimizer = compiler_resources_->UpdateOptimizer(new_lr);
@@ -300,6 +296,12 @@ void Executor::Detach() {
     device_->detach();
     VLOG(10) << " detached IPU";
   }
+}
+
+void Executor::Reset() {
+  Detach();
+  session_.reset();
+  executor_resources_.reset();
 }
 
 void Executor::SetWeightsIO() {
