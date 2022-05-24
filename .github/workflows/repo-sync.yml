@@ -15,7 +15,7 @@ jobs:
           docker run \
             -v $PWD:/checkout \
             --rm \
-            paddle_ipu_ci:2.3.0 \
+            ubuntu \
             bash -c "cd /checkout && pwd && ls -a /checkout && rm -rf ..?* .[!.]* *"
 
       # TODO use latest git version and actions/checkout@v2
@@ -47,5 +47,5 @@ jobs:
           docker run \
             -v $PWD:/checkout \
             --rm \
-            paddle_ipu_ci:2.3.0 \
+            ubuntu \
             bash -c "cd /checkout && pwd && ls -a /checkout && rm -rf ..?* .[!.]* *"
