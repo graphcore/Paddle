@@ -26,41 +26,29 @@ from paddle.optimizer.lr import LRScheduler
 import shutil
 
 SEED = 2022
-enable_test = False
-
-if enable_test:
-
-    def load_custom_ops():
-        custom_ops = load(
-            name="custom_ops",
-            sources=["./custom_op/custom_identity_loss.cc"],
-            extra_cxx_cflags=['-DONNX_NAMESPACE=onnx'])
-        return custom_ops
-
-    custom_ops = load_custom_ops()
-
-    class SimpleLayer(paddle.nn.Layer):
-        def __init__(self, use_ipu=False):
-            super(SimpleLayer, self).__init__()
-            self.use_ipu = use_ipu
-            self.conv = paddle.nn.Conv2D(
-                in_channels=3, out_channels=1, kernel_size=2, stride=1)
-
-        def forward(self, x, target=None):
-            x = self.conv(x)
-            x = paddle.fluid.layers.flatten(x, axis=1)
-            if target is not None:
-                x = paddle.fluid.layers.softmax(x)
-                loss = paddle.fluid.layers.cross_entropy(x, target)
-                if self.use_ipu:
-                    loss = custom_ops.identity_loss(loss, 1)
-                else:
-                    loss = paddle.mean(loss)
-                return x, loss
-            return x
 
 
-@unittest.skipIf(not enable_test, "disable in CI")
+class SimpleLayer(paddle.nn.Layer):
+    def __init__(self, use_ipu=False):
+        super(SimpleLayer, self).__init__()
+        self.use_ipu = use_ipu
+        self.conv = paddle.nn.Conv2D(
+            in_channels=3, out_channels=1, kernel_size=2, stride=1)
+
+    def forward(self, x, target=None):
+        x = self.conv(x)
+        x = paddle.fluid.layers.flatten(x, axis=1)
+        if target is not None:
+            x = paddle.fluid.layers.softmax(x)
+            loss = paddle.fluid.layers.cross_entropy(x, target)
+            if self.use_ipu:
+                loss = paddle.fluid.layers.identity_loss(loss, 1)
+            else:
+                loss = paddle.mean(loss)
+            return x, loss
+        return x
+
+
 class TestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -91,8 +79,9 @@ class TestBase(unittest.TestCase):
         label = paddle.randint(0, 10, shape=[32], dtype='int64')
         model_path = '{}/model_state_dict_{}.pdparams'.format(
             self.save_path, 'ipu' if use_ipu else 'cpu')
-        optim_path = '{}/optim_state_dict_{}.pdopt'.format(
-            self.save_path, 'ipu' if use_ipu else 'cpu')
+        optim_path = '{}/optim_state_dict_{}.pdopt'.format(self.save_path, 'ipu'
+                                                           if use_ipu else
+                                                           'cpu')
 
         if use_ipu:
             device = paddle.set_device('ipu')

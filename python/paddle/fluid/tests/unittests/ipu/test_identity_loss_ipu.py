@@ -26,18 +26,7 @@ from paddle.utils.cpp_extension import load
 
 paddle.enable_static()
 
-enable_test = False
 
-if enable_test:
-    def load_custom_ops():
-        custom_ops = load(
-            name="custom_ops",
-            sources=["./custom_identity_loss.cc"],
-            extra_cxx_cflags=['-DONNX_NAMESPACE=onnx'])
-        return custom_ops
-
-
-@unittest.skipIf(not enable_test, "disable in CI")
 class TestBase(IPUOpTest):
     def setUp(self):
         self.set_atol()
@@ -48,7 +37,7 @@ class TestBase(IPUOpTest):
 
     def set_op(self):
         # setup custom op
-        self.op = load_custom_ops().identity_loss
+        self.op = paddle.fluid.layers.identity_loss
 
     def set_feed(self):
         self.feed = {
@@ -104,14 +93,13 @@ class TestBase(IPUOpTest):
                 # none
                 cpu_res = self.feed['x']
 
-            self.assertTrue(
-                np.allclose(
-                    ipu_res[0], cpu_res, atol=self.atol))
+            self.assertTrue(np.allclose(ipu_res[0], cpu_res, atol=self.atol))
 
     def test_base(self):
         # TODO: use string instead of int for reduction
         for reduction in [0, 1, 2]:
             self._test_base(reduction)
+
 
 if __name__ == "__main__":
     unittest.main()

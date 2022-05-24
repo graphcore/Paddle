@@ -24,40 +24,30 @@ from paddle.utils.cpp_extension import load
 from paddle.optimizer.lr import LRScheduler
 
 SEED = 2022
-enable_test = False
-
-if enable_test:
-    def load_custom_ops():
-        custom_ops = load(
-            name="custom_ops",
-            sources=["./custom_op/custom_identity_loss.cc"],
-            extra_cxx_cflags=['-DONNX_NAMESPACE=onnx'])
-        return custom_ops
-
-    custom_ops = load_custom_ops()
-
-    class SimpleLayer(paddle.nn.Layer):
-        def __init__(self, use_ipu=False):
-            super(SimpleLayer, self).__init__()
-            self.use_ipu = use_ipu
-            self.conv = paddle.nn.Conv2D(in_channels=3, out_channels=1, kernel_size=2, stride=1)
-
-        @to_static()
-        def forward(self, x, target=None):
-            x = self.conv(x)
-            x = paddle.fluid.layers.flatten(x, axis=1)
-            if target is not None:
-                x = paddle.fluid.layers.softmax(x)
-                loss = paddle.fluid.layers.cross_entropy(x, target)
-                if self.use_ipu:
-                    loss = custom_ops.identity_loss(loss, 1)
-                else:
-                    loss = paddle.mean(loss)
-                return x, loss
-            return x
 
 
-@unittest.skipIf(not enable_test, "disable in CI")
+class SimpleLayer(paddle.nn.Layer):
+    def __init__(self, use_ipu=False):
+        super(SimpleLayer, self).__init__()
+        self.use_ipu = use_ipu
+        self.conv = paddle.nn.Conv2D(
+            in_channels=3, out_channels=1, kernel_size=2, stride=1)
+
+    @to_static()
+    def forward(self, x, target=None):
+        x = self.conv(x)
+        x = paddle.fluid.layers.flatten(x, axis=1)
+        if target is not None:
+            x = paddle.fluid.layers.softmax(x)
+            loss = paddle.fluid.layers.cross_entropy(x, target)
+            if self.use_ipu:
+                loss = paddle.fluid.layers.identity_loss(loss, 1)
+            else:
+                loss = paddle.mean(loss)
+            return x, loss
+        return x
+
+
 class TestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -67,17 +57,19 @@ class TestBase(unittest.TestCase):
         paddle.seed(SEED)
         np.random.seed(SEED)
         model = SimpleLayer(use_ipu)
-        optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
-        data = paddle.uniform((32,3,10,10), dtype='float32')
+        optim = paddle.optimizer.Adam(
+            learning_rate=0.01, parameters=model.parameters())
+        data = paddle.uniform((32, 3, 10, 10), dtype='float32')
         label = paddle.randint(0, 10, shape=[32], dtype='int64')
 
         if use_ipu:
             device = paddle.set_device('ipu')
             ipu_strategy = paddle.static.IpuStrategy()
-            ipu_strategy.set_graph_config(num_ipus=1,
-                                        is_training=True,
-                                        micro_batch_size=1,
-                                        enable_manual_shard=False)
+            ipu_strategy.set_graph_config(
+                num_ipus=1,
+                is_training=True,
+                micro_batch_size=1,
+                enable_manual_shard=False)
             ipu_strategy.set_optimizer(optim)
 
         result = []
@@ -98,6 +90,7 @@ class TestBase(unittest.TestCase):
         ipu_loss = self._test(True).flatten()
 
         self.assertTrue(np.allclose(ipu_loss, cpu_loss, atol=1e-4))
+
 
 if __name__ == "__main__":
     unittest.main()
