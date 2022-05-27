@@ -13,11 +13,12 @@
 # limitations under the License.
 '''
 python3.7 -m paddle.distributed.launch \
---run_mode=collective \
---ips=host1,host2 \
---ipus_per_replica=2 \
---num_ipus=128 \
---partition_name=pod128 \
+--device_num=128 \
+ipu \
+--hosts=host1,host2 \
+--ipus_per_host=2 \
+--nproc_per_host=1 \
+--ipu_partition=pod128 \
 --vipu_server=lr17-1-ctrl \
 python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_pod128_ipu.py
 

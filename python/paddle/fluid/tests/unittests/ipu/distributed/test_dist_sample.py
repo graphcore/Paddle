@@ -15,14 +15,14 @@
 Single host:
 
 python3.7 -m paddle.distributed.launch \
---run_mode=collective \
---ips=localhost \
---nproc_per_node=2 \
+--device_num=4 \
+ipu \
+--hosts=localhost \
+--nproc_per_host=2 \
 --ipus_per_replica=1 \
---num_ipus=4 \
---partition_name=pod64 \
+--ipu_partition=pod64 \
 --vipu_server=10.137.96.62 \
-python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample_ipu.py
+python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample.py
 
 Equal to:
 
@@ -32,19 +32,20 @@ poprun \
 --num-replicas=4 \
 --ipus-per-replica=1 \
 --print-topology=yes \
-python3.7 python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample_ipu.py
+python3.7 python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample.py
 '''
 '''
 Multi hosts:
 
 python3.7 -m paddle.distributed.launch \
---run_mode=collective \
---ips=host1,host2 \
+--device_num=4 \
+ipu \
+--hosts=host1,host2 \
+--nproc_per_host=1 \
 --ipus_per_replica=1 \
---num_ipus=4 \
---partition_name=pod64 \
+--ipu_partition=pod64 \
 --vipu_server=10.137.96.62 \
-python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample_ipu.py
+python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample.py
 
 Equal to:
 
@@ -54,7 +55,7 @@ poprun \
 --num-replicas=4 \
 --ipus-per-replica=1 \
 --print-topology=yes \
-python3.7 python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample_ipu.py
+python3.7 python/paddle/fluid/tests/unittests/ipu/disabled/test_dist_sample.py
 '''
 
 import os

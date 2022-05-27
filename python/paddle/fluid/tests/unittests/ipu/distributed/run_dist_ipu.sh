@@ -16,8 +16,8 @@
 
 set -e
 
-partition_name=pod64-lr17
-vipu_server=lr17-1-ctrl
+partition_name=pod64
+vipu_server=10.137.96.62
 allclose_script="
 import sys
 import numpy as np
@@ -37,13 +37,13 @@ do
         do
             echo "Testcase: opt: ${opt}, onchip: ${onchip}, rts: ${rts}"
             echo "paddle.distributed.fleet.launch test with IPUs..."
-            python3.7 -m paddle.distributed.fleet.launch \
-            --run_mode=collective \
-            --ips=localhost \
-            --nproc_per_node=2 \
+            python3.7 -m paddle.distributed.launch \
+            --device_num=8 \
+            ipu \
+            --hosts=localhost \
+            --nproc_per_host=2 \
             --ipus_per_replica=2 \
-            --num_ipus=8 \
-            --partition_name=${partition_name} \
+            --ipu_partition=${partition_name} \
             --vipu_server=${vipu_server} \
             test_dist_data_parallel_ipu.py ${opt} ipu_res.txt ${onchip} ${rts} > ipu.log
             echo "paddle.distributed.fleet.launch test with IPUs...Done"
