@@ -40,7 +40,7 @@ class IpuStrategy {
   // Average sharding, debugging used
   bool need_avg_shard = false;
 
-  // Flag for fp16, true for pure fp16
+  // Flag for fp16, true for inference with pure fp16
   bool enable_fp16 = false;
 
   // The mode of Adam/Lamb optimizer

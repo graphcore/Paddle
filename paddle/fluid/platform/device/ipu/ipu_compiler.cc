@@ -415,7 +415,7 @@ void Compiler::LowerWeights(const Scope* scope) {
     auto* node = graph_helper_->nodes_id_map[id];
     // Weights are var node and Persistable
     if (node->IsVar() && !node->IsCtrlVar() && node->Var() &&
-        node->Var()->Persistable()) {
+        node->Var()->Persistable() && node->inputs.empty()) {
       // Weights are Parameter in training mode
       if (ipu_strategy_->is_training && !node->Var()->IsParameter()) {
         continue;
@@ -437,6 +437,7 @@ void Compiler::LowerWeights(const Scope* scope) {
       for (size_t i = 0; i < tensor.dims().size(); ++i) {
         shape.push_back(tensor.dims().at(i));
       }
+
       popart::TensorInfo tensor_info(dtype, shape);
       popart::ConstVoidData const_data{tensor.data(), tensor_info};
       if (!node->outputs.empty()) {
