@@ -37,6 +37,7 @@ void InferenceDtypeTransferPass::ApplyImpl(ir::Graph* graph) const {
     VLOG(10) << "Transfer var to fp16...";
     auto* scope = ipu_backend->GetScope();
 
+    std::unordered_set<std::string> used_var_names;
     for (auto* node : graph->Nodes()) {
       if (node->IsVar()) {
         auto var_desc = node->Var();
@@ -47,7 +48,8 @@ void InferenceDtypeTransferPass::ApplyImpl(ir::Graph* graph) const {
                    << var_desc->GetDataType();
 
           if (node->inputs.empty() && node->Var()->Persistable() &&
-              scope->FindVar(var_desc->Name())) {
+              scope->FindVar(var_desc->Name()) &&
+              used_var_names.find(var_desc->Name()) == used_var_names.end()) {
             // Transfer the dtypes of weight tensors
             std::vector<float16> fp16_data;
             auto* tensor = scope->FindVar(var_desc->Name())
@@ -64,6 +66,7 @@ void InferenceDtypeTransferPass::ApplyImpl(ir::Graph* graph) const {
                 framework::TransToPhiDataType(proto::VarType::FP16));
           }
         }
+        used_var_names.insert(var_desc->Name());
       }
       if (node->IsOp()) {
         auto* op_desc = node->Op();
