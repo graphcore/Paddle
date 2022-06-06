@@ -1728,16 +1728,16 @@ void BindImperative(py::module *m_ptr) {
           },
           py::return_value_policy::copy)
       .def(
-           "_copy_to",
-           [](const std::shared_ptr<imperative::VarBase> &self,
-              const platform::IPUPlace &place, bool blocking) {
-             auto new_var = self->NewVarBase(place, blocking);
-             if (!blocking) {
-               IncreaseVarbaseReferenceCountUntilCopyComplete(self, place);
-             }
-             return new_var;
-           },
-           py::return_value_policy::copy)
+          "_copy_to",
+          [](const std::shared_ptr<imperative::VarBase> &self,
+             const platform::IPUPlace &place, bool blocking) {
+            auto new_var = self->NewVarBase(place, blocking);
+            if (!blocking) {
+              IncreaseVarbaseReferenceCountUntilCopyComplete(self, place);
+            }
+            return new_var;
+          },
+          py::return_value_policy::copy)
       .def(
           "_copy_to",
           [](const std::shared_ptr<imperative::VarBase> &self,
