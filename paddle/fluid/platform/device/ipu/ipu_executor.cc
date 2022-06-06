@@ -248,7 +248,8 @@ void Executor::AcquireDevice() {
     VLOG(10) << "Create IPU model device...";
     std::map<std::string, std::string> deviceOpts{
         {
-            "numIPUs", std::to_string(ipu_strategy_->num_ipus),
+            "numIPUs",
+            std::to_string(ipu_strategy_->num_ipus),
         },
         {"ipuVersion", "ipu2"},
     };
@@ -259,7 +260,8 @@ void Executor::AcquireDevice() {
     VLOG(10) << "Create offline device...";
     std::map<std::string, std::string> deviceOpts{
         {
-            "numIPUs", std::to_string(ipu_strategy_->num_ipus),
+            "numIPUs",
+            std::to_string(ipu_strategy_->num_ipus),
         },
         {"ipuVersion", "ipu2"},
     };
