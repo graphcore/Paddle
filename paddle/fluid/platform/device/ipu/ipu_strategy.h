@@ -64,6 +64,9 @@ class IpuStrategy {
   // Micro batch-size
   int micro_batch_size = 1;
 
+  // The number of virtual tiles for IPUMODEL
+  int tiles_per_ipu = 4;
+
   // Random seed
   std::uint64_t random_seed = std::numeric_limits<std::uint64_t>::max();
 

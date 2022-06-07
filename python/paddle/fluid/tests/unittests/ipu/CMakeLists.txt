@@ -15,4 +15,12 @@ if(WITH_IPU)
   set_tests_properties(test_elemetwise_x_op_ipu PROPERTIES TIMEOUT 300)
   set_tests_properties(test_reduce_x_op_ipu PROPERTIES TIMEOUT 600)
   set_tests_properties(test_save_load_ipu PROPERTIES TIMEOUT 600)
+
+  file(GLOB INFERENCE_TESTS "inference/test_*.py")
+  string(REPLACE ".py" "" INFERENCE_TESTS "${INFERENCE_TESTS}")
+
+  foreach(INFERENCE_TEST ${INFERENCE_TESTS})
+    py_test_modules(${INFERENCE_TEST} MODULES ${INFERENCE_TEST})
+    set_tests_properties(${INFERENCE_TEST} PROPERTIES TIMEOUT 600)
+  endforeach(INFERENCE_TEST)
 endif()

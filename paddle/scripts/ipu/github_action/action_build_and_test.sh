@@ -29,7 +29,8 @@ cmake \
     -DWITH_GPU:STRING=OFF \
     -DWITH_NCCL:STRING=OFF \
     -DWITH_MKL:STRING=OFF \
-    -DWITH_TESTING:STRING=OFF \
+    -DWITH_TESTING:STRING=ON \
+    -DWITH_INFERENCE_API_TEST:SRTING=ON \
     -DWITH_PYTHON:STRING=ON \
     -DON_INFER:STRING=ON \
     -DWITH_IPU:STRING=ON \
@@ -74,4 +75,5 @@ pytest \
     -o cache_dir=paddle_build/pytest_cache \
     -n=3 \
     --maxfail=3 \
-    paddle/fluid/tests/unittests/ipu/
+    paddle/fluid/tests/unittests/ipu/ \
+    paddle/fluid/tests/unittests/ipu/inference/

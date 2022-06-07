@@ -89,6 +89,9 @@ void InferenceProcessPass::ApplyImpl(ir::Graph* graph) const {
   ipu_strategy_instance_->available_memory_proportion =
       graph->Get<float>("available_memory_proportion");
 
+  // Set tiles_per_ipu for IPUMODEL
+  ipu_strategy_instance_->tiles_per_ipu = 128;
+
   ipu_backend->SetIpuStrategy(*(ipu_strategy_instance_.get()));
 
   // Get feed_list and fetch list
