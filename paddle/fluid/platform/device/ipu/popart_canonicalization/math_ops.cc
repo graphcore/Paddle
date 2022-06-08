@@ -385,11 +385,27 @@ Node *cumsum_handler(Graph *graph, Node *node) {
                                {{"value", std::vector<int64_t>{axis}},
                                 {"dims", std::vector<int64_t>{1}},
                                 {"dtype", ONNXDataType::INT64}});
-  return CreateBaseOp(
-      graph, node, "popart_cumsum",
-      {GetInputVarNode("X", node), axis_node->outputs[0]},
-      {GetOutputVarNode("Out", node)},
+  Node *input_x = nullptr;
+  auto data_type_ = GetInputVarNode("X", node)->Var()->GetDataType();
+  bool need_cast = data_type_ != framework::proto::VarType::FP32;
+  std::vector<Node *> cumsum_out;
+  if (need_cast) {
+    auto cast_x = CreateCast(graph, node, {GetInputVarNode("X", node)}, {},
+                             framework::proto::VarType::FP32);
+    input_x = cast_x->outputs[0];
+  } else {
+    input_x = GetInputVarNode("X", node);
+    cumsum_out.emplace_back(GetOutputVarNode("Out", node));
+  }
+  auto cumsum_node = CreateBaseOp(
+      graph, node, "popart_cumsum", {input_x, axis_node->outputs[0]},
+      cumsum_out,
       {{"exclusive", popart_exclusive}, {"reverse", popart_reverse}});
+  if (need_cast) {
+    cumsum_node = CreateCast(graph, node, cumsum_node->outputs,
+                             {GetOutputVarNode("Out", node)}, data_type_);
+  }
+  return cumsum_node;
 }
 
 Node *matmul_v2_handler(Graph *graph, Node *node) {
