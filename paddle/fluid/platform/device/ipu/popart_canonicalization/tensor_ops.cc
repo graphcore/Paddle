@@ -33,10 +33,14 @@ Node *fill_constant_handler(Graph *graph, Node *node) {
   auto dtype = VarType2OnnxDType(static_cast<VarType::Type>(dtype_));
   auto dims = BOOST_GET_CONST(std::vector<int64_t>, op->GetAttr("shape"));
   auto value_ = BOOST_GET_CONST(float, op->GetAttr("value"));
-  size_t size = 1;
+  int size = 1;
   for (auto &dim : dims) {
     size *= dim;
   }
+  PADDLE_ENFORCE_GT(size, 0,
+                    errors::InvalidArgument(
+                        "IPU doesn't support non-positive dimensions. Please "
+                        "check tensor shape setting."));
   Attribute value;
   switch (dtype_) {
     case VarType::FP16:
@@ -488,10 +492,14 @@ Node *fill_any_like_handler(Graph *graph, Node *node) {
   auto x_shape = GetInputVarNode("X", node)->Var()->GetShape();
   auto dtype_ = BOOST_GET_CONST(int, op->GetAttr("dtype"));
   auto dtype = static_cast<VarType::Type>(dtype_);
-  size_t size = 1;
+  int size = 1;
   for (auto &dim : x_shape) {
     size *= dim;
   }
+  PADDLE_ENFORCE_GT(size, 0,
+                    errors::InvalidArgument(
+                        "IPU doesn't support non-positive dimensions. Please "
+                        "check tensor shape setting."));
 
   Attribute out_value;
   switch (dtype) {

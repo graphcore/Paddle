@@ -33,10 +33,14 @@ AttributeMap MakeConstAttrMap(std::vector<T> value, std::vector<int64_t> dims,
 template <typename T>
 AttributeMap MakeConstAttrMapFromValue(T v, std::vector<int64_t> dims,
                                        int dtype) {
-  size_t size = 1;
+  int size = 1;
   for (auto &dim : dims) {
     size *= dim;
   }
+  PADDLE_ENFORCE_GT(size, 0,
+                    errors::InvalidArgument(
+                        "IPU doesn't support non-positive dimensions. Please "
+                        "check tensor shape setting."));
   return MakeConstAttrMap<T>(std::vector<T>(size, v), dims, dtype);
 }
 
