@@ -1,0 +1,37 @@
+name: pre-commit
+
+on:
+  pull_request:
+
+jobs:
+  pre-commit:
+    runs-on: self-hosted
+
+    steps:
+      - name: clean space
+        run: |
+          docker run \
+            -v $PWD:/checkout \
+            --rm \
+            paddlepaddle/paddle:2.5.1-dev-ipu \
+            bash -c "cd /checkout && pwd && ls -a /checkout && rm -rf ..?* .[!.]* *"
+
+      # 由于 host git 版本太低, 使用 actions/checkout@v2 时得到的不是 git repo
+      - uses: actions/checkout@v1
+
+      - id: file_changes
+        uses: gglin001/file-changes-action@v1.2.4
+        with:
+          prNumber: ${{ github.event.number }}
+          output: " "
+
+      - name: build
+        run: |
+          docker run \
+            -v $PWD:/checkout \
+            --workdir /checkout \
+            --rm \
+            paddlepaddle/paddle:2.5.1-dev-ipu \
+            bash -c "
+            git config --global --add safe.directory /checkout &&
+            pre-commit run --files ${{ steps.file_changes.outputs.files }}"
