@@ -25,13 +25,16 @@ jobs:
           prNumber: ${{ github.event.number }}
           output: " "
 
+      - name: cache changes
+        run: |
+          echo "${{ steps.file_changes.outputs.files }}" > $PWD/pr_changed_files.txt
+
       - name: build
         run: |
           docker run \
             -v $PWD:/checkout \
+            -e PR_CHANGED_FILES=/checkout/pr_changed_files.txt \
             --workdir /checkout \
             --rm \
             paddlepaddle/paddle:2.5.1-dev-ipu \
-            bash -c "
-            git config --global --add safe.directory /checkout &&
-            pre-commit run --files ${{ steps.file_changes.outputs.files }}"
+            bash /checkout/paddle/scripts/ipu/github_action/pre-commit.sh
