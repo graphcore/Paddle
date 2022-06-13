@@ -33,4 +33,4 @@ cat $PR_CHANGED_FILES
 
 # run pre-commit
 echo -e "start run pre-commit \n\n"
-cat $PR_CHANGED_FILES | xargs pre-commit run --files
+cat $PR_CHANGED_FILES | xargs pre-commit run --show-diff-on-failure --files
