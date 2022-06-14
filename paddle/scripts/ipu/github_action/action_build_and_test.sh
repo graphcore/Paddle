@@ -60,6 +60,9 @@ gc-monitor
 export PYTHONPATH=/paddle_build/python:$PYTHONPATH
 python -c "import paddle; print(paddle.__file__)"
 
+# set include path for custom-op tests
+export CPATH=/paddle_build/python/paddle/include:$CPATH
+
 # create tar to `paddle_wheels`
 tar czf /paddle_wheels/paddle_ipu_${GITHUB_SHA}.tar.gz /paddle_build/python/dist/*.whl
 echo "create paddle wheel file: /paddle_wheels/paddle_ipu_${GITHUB_SHA}.tar.gz"

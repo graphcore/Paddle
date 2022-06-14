@@ -25,22 +25,23 @@ from paddle.utils.cpp_extension import load
 
 paddle.enable_static()
 
-enable_test = False
 
-if enable_test:
+def load_custom_ops():
     # load custom ops
     cur_dir = os.path.dirname(os.path.realpath(__file__))
-    custom_ops = load(
-        name="custom_jit_ops",
-        sources=[
-            f"{cur_dir}/leaky_relu_cpu.cc",
-            f"{cur_dir}/leaky_relu_ipu.cc",
-        ],
-        extra_cxx_cflags=['-DONNX_NAMESPACE=onnx'])
+    custom_ops = load(name="custom_jit_ops",
+                      sources=[
+                          f"{cur_dir}/leaky_relu_cpu.cc",
+                          f"{cur_dir}/leaky_relu_ipu.cc",
+                      ],
+                      extra_cxx_cflags=['-DONNX_NAMESPACE=onnx'])
+    return custom_ops
 
 
-@unittest.skipIf(not enable_test, "disable in CI")
+@unittest.skipIf(not paddle.is_compiled_with_ipu(),
+                 "core is not compiled with IPU")
 class TestBase(IPUOpTest):
+
     def setUp(self):
         self.set_atol()
         self.set_training()
@@ -50,8 +51,8 @@ class TestBase(IPUOpTest):
 
     def set_feed(self):
         self.feed = {
-            "x": np.random.uniform(
-                low=-2, high=2, size=[3, 5]).astype('float32'),
+            "x": np.random.uniform(low=-2, high=2, size=[3,
+                                                         5]).astype('float32'),
         }
 
     def set_feed_attr(self):
@@ -71,13 +72,13 @@ class TestBase(IPUOpTest):
         SEED = self.SEED
         main_prog.random_seed = SEED
         startup_prog.random_seed = SEED
+        custom_ops = load_custom_ops()
 
         with paddle.static.scope_guard(scope):
             with paddle.static.program_guard(main_prog, startup_prog):
-                x = paddle.static.data(
-                    name=self.feed_list[0],
-                    shape=self.feed_shape[0],
-                    dtype=self.feed_dtype[0])
+                x = paddle.static.data(name=self.feed_list[0],
+                                       shape=self.feed_shape[0],
+                                       dtype=self.feed_dtype[0])
                 # custom op
                 out = custom_ops.custom_leaky_relu(x, **self.attrs)
                 fetch_list = [out.name]
@@ -97,11 +98,10 @@ class TestBase(IPUOpTest):
                 # add name mapping for paddle custom op and popart custom ops
                 # `paddle_op` was defined in leaky_relu_cpu.cc
                 # `popart_op`, `domain` and `version` was defined in leaky_relu_ipu.cc
-                ipu_strategy.add_custom_op(
-                    paddle_op="custom_leaky_relu",
-                    popart_op="LeakyRelu",
-                    domain='custom.ops',
-                    version=1)
+                ipu_strategy.add_custom_op(paddle_op="custom_leaky_relu",
+                                           popart_op="LeakyRelu",
+                                           domain='custom.ops',
+                                           version=1)
 
                 program = paddle.static.IpuCompiledProgram(
                     main_prog, scope=scope,
@@ -117,8 +117,7 @@ class TestBase(IPUOpTest):
         res1 = self._test_base(True)
 
         self.assertTrue(
-            np.allclose(
-                res0.flatten(), res1.flatten(), atol=self.atol))
+            np.allclose(res0.flatten(), res1.flatten(), atol=self.atol))
 
         self.assertTrue(res0.shape == res1.shape)
 

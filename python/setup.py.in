@@ -669,6 +669,12 @@ class InstallHeaders(Command):
         install_dir = os.path.join(self.install_dir, os.path.dirname(install_dir))
         if not os.path.exists(install_dir):
             self.mkpath(install_dir)
+        # custom
+        custom_dir = re.sub('^build.*?include', '', install_dir)
+        custom_dir = f"paddle/include{custom_dir}"
+        # os.makedirs(custom_dir, exist_ok=True)
+        self.mkpath(custom_dir)
+        self.copy_file(header, custom_dir)
         return self.copy_file(header, install_dir)
 
     def run(self):
