@@ -24,26 +24,6 @@ namespace paddle {
 namespace platform {
 namespace ipu {
 
-template <typename T>
-AttributeMap MakeConstAttrMap(std::vector<T> value, std::vector<int64_t> dims,
-                              int dtype) {
-  return AttributeMap{{"value", value}, {"dims", dims}, {"dtype", dtype}};
-}
-
-template <typename T>
-AttributeMap MakeConstAttrMapFromValue(T v, std::vector<int64_t> dims,
-                                       int dtype) {
-  int size = 1;
-  for (auto &dim : dims) {
-    size *= dim;
-  }
-  PADDLE_ENFORCE_GT(size, 0,
-                    errors::InvalidArgument(
-                        "IPU doesn't support non-positive dimensions. Please "
-                        "check tensor shape setting."));
-  return MakeConstAttrMap<T>(std::vector<T>(size, v), dims, dtype);
-}
-
 const std::string GenerateVarName();
 const std::string CreateOpIdentifyId(Node *node);
 
@@ -61,9 +41,16 @@ Node *CreateConst(Graph *graph, Node *node, const std::vector<Node *> &inputs,
                   const std::vector<Node *> &outputs,
                   const AttributeMap &attrs);
 
-// otype is framework::proto::VarType::Type
+template <typename T>
+Node *CreateConst(Graph *graph, Node *node, const std::vector<T> &value,
+                  const std::vector<int64_t> &dims, ONNXDataType dtype) {
+  return CreateConst(
+      graph, node, {}, {},
+      AttributeMap{{"value", value}, {"dims", dims}, {"dtype", dtype}});
+}
+
 Node *CreateCast(Graph *graph, Node *node, const std::vector<Node *> &inputs,
-                 const std::vector<Node *> &outputs, const int otype);
+                 const std::vector<Node *> &outputs, const VarType::Type otype);
 
 Node *CreateGemm(Graph *graph, Node *node, const std::vector<Node *> &inputs,
                  const std::vector<Node *> &outputs, int64_t transA = 0,
