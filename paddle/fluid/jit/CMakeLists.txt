@@ -16,6 +16,7 @@ cc_library(
 if(WITH_TESTING AND NOT WIN32)
   add_custom_target(
     jit_download_program
+    ALL
     COMMAND wget -nc https://paddle-ci.gz.bcebos.com/dy2st/Testing.tar.gz
     COMMAND tar zxvf Testing.tar.gz)
   set(JIT_DEPS
@@ -34,5 +35,4 @@ if(WITH_TESTING AND NOT WIN32)
     layer_test
     SRCS layer_test.cc
     DEPS ${JIT_DEPS})
-  add_dependencies(layer_test jit_download_program)
 endif()
