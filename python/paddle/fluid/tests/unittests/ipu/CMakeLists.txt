@@ -20,7 +20,7 @@ if(WITH_IPU)
   foreach(INFERENCE_TEST ${INFERENCE_TESTS})
     py_test_modules(${INFERENCE_TEST} MODULES ${INFERENCE_TEST})
     set_tests_properties(${INFERENCE_TEST} PROPERTIES TIMEOUT 600)
-  endforeach(INFERENCE_TEST)
+  endforeach()
 
   file(GLOB CUSTOM_OP_TESTS "custom_op/test_*.py")
   list(
@@ -29,6 +29,6 @@ if(WITH_IPU)
   string(REPLACE ".py" "" CUSTOM_OP_TESTS "${CUSTOM_OP_TESTS}")
   foreach(CUSTOM_OP_TEST ${CUSTOM_OP_TESTS})
     py_test_modules(${CUSTOM_OP_TEST} MODULES ${CUSTOM_OP_TEST})
-  endforeach(CUSTOM_OP_TESTS)
+  endforeach()
 
 endif()
