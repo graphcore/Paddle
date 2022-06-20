@@ -15,8 +15,7 @@ cc_library(
 
 if(WITH_TESTING AND NOT WIN32)
   add_custom_target(
-    jit_download_program
-    ALL
+    jit_download_program ALL
     COMMAND wget -nc https://paddle-ci.gz.bcebos.com/dy2st/Testing.tar.gz
     COMMAND tar zxvf Testing.tar.gz)
   set(JIT_DEPS
