@@ -150,5 +150,13 @@ class TestCase10(TestBase):
         self.attrs['output_size'] = [12, 12]
 
 
+class TestCase11(TestBase):
+
+    # Depthwise conv2d transpose
+    def set_op_attrs(self):
+        super().set_op_attrs()
+        self.attrs['groups'] = 3
+
+
 if __name__ == "__main__":
     unittest.main()
