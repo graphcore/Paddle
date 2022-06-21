@@ -325,6 +325,86 @@ Node *dropout_handler(Graph *graph, Node *node) {
   }
 }
 
+Node *conv2d_transpose_handler(Graph *graph, Node *node) {
+  auto *op = node->Op();
+
+  auto data_format = BOOST_GET_CONST(std::string, op->GetAttr("data_format"));
+  if (data_format != "NCHW") {
+    platform::errors::InvalidArgument("Only support NCHW as data_format.");
+  }
+
+  auto *kernel_info = GetInputVarNode("Filter", node);
+  auto kernel_shape = kernel_info->Var()->GetShape();
+
+  auto dilations_ = BOOST_GET_CONST(std::vector<int>, op->GetAttr("dilations"));
+  auto dilations = std::vector<int64_t>{dilations_.begin(), dilations_.end()};
+  auto strides_ = BOOST_GET_CONST(std::vector<int>, op->GetAttr("strides"));
+  auto strides = std::vector<int64_t>{strides_.begin(), strides_.end()};
+  auto output_padding_ =
+      BOOST_GET_CONST(std::vector<int>, op->GetAttr("output_padding"));
+  auto output_padding =
+      std::vector<int64_t>{output_padding_.begin(), output_padding_.end()};
+  auto group_ = BOOST_GET_CONST(int, op->GetAttr("groups"));
+  auto group = int64_t(group_);
+
+  auto padding_algorithm =
+      BOOST_GET_CONST(std::string, op->GetAttr("padding_algorithm"));
+
+  auto paddings_ = BOOST_GET_CONST(std::vector<int>, op->GetAttr("paddings"));
+  if (paddings_.size() == 2) {
+    paddings_.push_back(paddings_[0]);
+    paddings_.push_back(paddings_[1]);
+  } else if (paddings_.size() == 4) {
+    std::swap(paddings_[1], paddings_[2]);
+  }
+  auto paddings = std::vector<int64_t>{paddings_.begin(), paddings_.end()};
+
+  if (padding_algorithm == "SAME") {
+    // Update paddings and dilations based on the sizes of H and W.
+    auto input_shape = GetInputVarNode("Input", node)->Var()->GetShape();
+    for (auto i = 0; i < 2; i++) {
+      auto out_size = (input_shape[i + 2] + strides[i] - 1) / strides[i];
+      auto pad_sum = std::max(
+          (out_size - 1) * strides[i] + kernel_shape[i] - input_shape[i + 2],
+          static_cast<int64_t>(0));
+      auto pad_0 = pad_sum / 2;
+      auto pad_1 = pad_sum - pad_0;
+      paddings[i] = pad_0;
+      paddings[i + 2] = pad_1;
+    }
+    for (auto i = 0; i < dilations.size(); i++) {
+      dilations[i] = 1;
+    }
+  } else if (padding_algorithm == "VALID") {
+    for (auto i = 0; i < paddings.size(); i++) {
+      paddings[i] = 0;
+    }
+  }
+
+  auto attrs = AttributeMap{{"dilations", dilations},
+                            {"group", group},
+                            {"kernel_shape", kernel_shape},
+                            {"output_padding", output_padding},
+                            {"pads", paddings},
+                            {"strides", strides}};
+  if (!op->Input("Bias").empty()) {
+    return CreateBaseOp(graph, node, "popart_convtranspose",
+                        {
+                            GetInputVarNode("Input", node),
+                            GetInputVarNode("Filter", node),
+                            GetInputVarNode("Bias", node),
+                        },
+                        node->outputs, attrs);
+  } else {
+    return CreateBaseOp(graph, node, "popart_convtranspose",
+                        {
+                            GetInputVarNode("Input", node),
+                            GetInputVarNode("Filter", node),
+                        },
+                        node->outputs, attrs);
+  }
+}
+
 }  // namespace
 }  // namespace ipu
 }  // namespace platform
@@ -337,4 +417,5 @@ REGISTER_HANDLER(group_norm, group_norm_handler);
 REGISTER_HANDLER(instance_norm, instance_norm_handler);
 REGISTER_HANDLER(layer_norm, layer_norm_handler);
 REGISTER_HANDLER(conv2d, conv2d_handler);
+REGISTER_HANDLER(conv2d_transpose, conv2d_transpose_handler);
 REGISTER_HANDLER(dropout, dropout_handler);
