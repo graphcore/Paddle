@@ -21,6 +21,8 @@ mkdir /paddle_build
 # install requirements
 pip install -r /checkout/python/requirements.txt
 
+conda install ninja -y
+
 # todo use ninja
 cmake \
     -DCMAKE_INSTALL_PREFIX:STRING=install \
@@ -40,7 +42,7 @@ cmake \
     -DCMAKE_BUILD_TYPE:STRING=Release \
     -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc \
     -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ \
-    -G "Unix Makefiles" \
+    -G "Ninja" \
     -H/checkout \
     -B/paddle_build
 
