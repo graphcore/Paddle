@@ -69,7 +69,8 @@ void InferenceProcessPass::ApplyImpl(ir::Graph* graph) const {
   if (enable_pipelining) {
     auto batches_per_step = graph->Get<int>("batches_per_step");
     PADDLE_ENFORCE_GE(
-        batches_per_step, num_ipus,
+        batches_per_step,
+        num_ipus,
         platform::errors::InvalidArgument("Batched per step should be equal or "
                                           "greater than the number of IPUs"));
     ipu_strategy_instance_->batches_per_step = batches_per_step;
@@ -132,8 +133,9 @@ void InferenceProcessPass::ApplyImpl(ir::Graph* graph) const {
   for (auto pass_name : graph_pass) {
     auto pass = PassRegistry::Instance().Get(pass_name);
     if (pass_name == "infer_shape_pass") {
-      pass->Set("feed_list", new std::vector<std::string>(feed_list.begin(),
-                                                          feed_list.end()));
+      pass->Set(
+          "feed_list",
+          new std::vector<std::string>(feed_list.begin(), feed_list.end()));
     }
     pass->Apply(graph);
   }
@@ -142,8 +144,9 @@ void InferenceProcessPass::ApplyImpl(ir::Graph* graph) const {
     auto pass = PassRegistry::Instance().Get(pass_name);
     pass->Set("feed_list",
               new std::vector<std::string>(feed_list.begin(), feed_list.end()));
-    pass->Set("fetch_list", new std::vector<std::string>(fetch_list.begin(),
-                                                         fetch_list.end()));
+    pass->Set(
+        "fetch_list",
+        new std::vector<std::string>(fetch_list.begin(), fetch_list.end()));
     pass->Apply(graph);
   }
 
