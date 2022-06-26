@@ -88,8 +88,12 @@ Node *identity_handler(Graph *graph, Node *node) {
 Node *identity_loss_handler(Graph *graph, Node *node) {
   auto *op = node->Op();
   auto reduction = BOOST_GET_CONST(int, op->GetAttr("reduction"));
-  return CreateBaseOp(graph, node, "popart_identity_loss", node->inputs,
-                      node->outputs, {{"reduction", reduction}});
+  return CreateBaseOp(graph,
+                      node,
+                      "popart_identity_loss",
+                      node->inputs,
+                      node->outputs,
+                      {{"reduction", reduction}});
 }
 
 Node *detach_handler(Graph *graph, Node *node) {

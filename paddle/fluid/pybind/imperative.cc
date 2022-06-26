@@ -153,7 +153,8 @@ static const platform::Place PyObjectToPlace(const py::object &place_obj) {
   } else {
     PADDLE_THROW(platform::errors::InvalidArgument(
         "Place should be one of "
-        "Place/CPUPlace/XPUPlace/CUDAPlace/CUDAPinnedPlace/NPUPlace/IPUPlace/MLUPlace/"
+        "Place/CPUPlace/XPUPlace/CUDAPlace/CUDAPinnedPlace/NPUPlace/IPUPlace/"
+        "MLUPlace/"
         "CustomPlace"));
   }
 }
@@ -210,7 +211,8 @@ static void InitVarBaseAndTensor(imperative::VarBase *self,
   } else {
     PADDLE_THROW(platform::errors::InvalidArgument(
         "Place should be one of "
-        "CPUPlace/XPUPlace/CUDAPlace/CUDAPinnedPlace/NPUPlace/IPUPlace/MLUPlace"));
+        "CPUPlace/XPUPlace/CUDAPlace/CUDAPinnedPlace/NPUPlace/IPUPlace/"
+        "MLUPlace"));
   }
   self->SetDataType(framework::TransToProtoVarType(tensor->dtype()));
 }
@@ -1863,7 +1865,8 @@ void BindImperative(py::module *m_ptr) {
       .def(
           "_copy_to",
           [](const std::shared_ptr<imperative::VarBase> &self,
-             const platform::IPUPlace &place, bool blocking) {
+             const platform::IPUPlace &place,
+             bool blocking) {
             auto new_var = self->NewVarBase(place, blocking);
             if (!blocking) {
               IncreaseVarbaseReferenceCountUntilCopyComplete(self, place);
@@ -1874,7 +1877,8 @@ void BindImperative(py::module *m_ptr) {
       .def(
           "_copy_to",
           [](const std::shared_ptr<imperative::VarBase> &self,
-             const platform::MLUPlace &place, bool blocking) {
+             const platform::MLUPlace &place,
+             bool blocking) {
             auto new_var = self->NewVarBase(place, blocking);
             if (!blocking) {
               IncreaseVarbaseReferenceCountUntilCopyComplete(self, place);
@@ -2333,24 +2337,34 @@ void BindImperative(py::module *m_ptr) {
              }
            })
       .def("trace",
-           [](imperative::Tracer &self, const std::string &type,
-              const PyNameVarBaseMap &ins, const PyNameVarBaseMap &outs,
-              framework::AttributeMap attrs, const platform::IPUPlace &place,
+           [](imperative::Tracer &self,
+              const std::string &type,
+              const PyNameVarBaseMap &ins,
+              const PyNameVarBaseMap &outs,
+              framework::AttributeMap attrs,
+              const platform::IPUPlace &place,
               bool trace_backward,
               const std::map<std::string, std::string> &inplace_map = {}) {
              auto ins_map = ConvertToNameVarBaseMap(ins);
              auto outs_map = ConvertToNameVarBaseMap(outs);
              {
                py::gil_scoped_release release;
-               self.TraceOp<imperative::VarBase>(
-                   type, std::move(ins_map), std::move(outs_map),
-                   std::move(attrs), place, trace_backward, inplace_map);
+               self.TraceOp<imperative::VarBase>(type,
+                                                 std::move(ins_map),
+                                                 std::move(outs_map),
+                                                 std::move(attrs),
+                                                 place,
+                                                 trace_backward,
+                                                 inplace_map);
              }
            })
       .def("trace",
-           [](imperative::Tracer &self, const std::string &type,
-              const PyNameVarBaseMap &ins, const PyNameVarBaseMap &outs,
-              framework::AttributeMap attrs, const platform::MLUPlace &place,
+           [](imperative::Tracer &self,
+              const std::string &type,
+              const PyNameVarBaseMap &ins,
+              const PyNameVarBaseMap &outs,
+              framework::AttributeMap attrs,
+              const platform::MLUPlace &place,
               bool trace_backward,
               const std::map<std::string, std::string> &inplace_map = {}) {
              auto ins_map = ConvertToNameVarBaseMap(ins);

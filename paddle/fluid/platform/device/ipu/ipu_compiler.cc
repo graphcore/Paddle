@@ -111,8 +111,10 @@ struct ConstantOpAttrVisitor : public boost::static_visitor<void> {
   void operator()(const std::vector<double>& vec) const {
     // popart do not support float64 constant
     std::vector<float> vec_fp32;
-    std::transform(vec.begin(), vec.end(), std::back_inserter(vec_fp32),
-                   [](double f) -> float { return float(f); });
+    std::transform(vec.begin(),
+                   vec.end(),
+                   std::back_inserter(vec_fp32),
+                   [](double f) -> float { return static_cast<float>(f); });
     framework::TensorFromVector<float>(vec_fp32, tensor_);
   }
 #define RAISE_ERROR \
