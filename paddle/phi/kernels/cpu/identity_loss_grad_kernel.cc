@@ -15,7 +15,7 @@
 #include "paddle/phi/kernels/identity_loss_grad_kernel.h"
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/copy_kernel.h"
+#include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/mean_all_grad_kernel.h"
 #include "paddle/phi/kernels/reduce_sum_grad_kernel.h"
 
@@ -44,7 +44,7 @@ void IdentityLossGradKernel(const Context& dev_ctx,
     default:
       // error
       PADDLE_THROW(errors::InvalidArgument(
-            "reduction should be 0, 1 and 2. But get %d", reduction));
+          "reduction should be 0, 1 and 2. But get %d", reduction));
   }
 }
 
