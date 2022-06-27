@@ -1234,7 +1234,7 @@ def softmax_with_cross_entropy(logits,
 def identity_loss(x, reduction="none"):
     r"""Marks a tensor as being part of the loss calculation for IPU.
 
-    This function should be called on the (final) loss of a model so that
+    This operator is used to handle on the (final) loss of a model so that
     it is used as the start of backpropagation.
 
     When `reduction` is `none`, return raw `Out`.
@@ -1250,8 +1250,9 @@ def identity_loss(x, reduction="none"):
         Out = SUM(Out)
 
     Parameters:
-        x (Variable): The calculated loss ``Tensor``.
-        reduction(str|int): Reduce the loss output. Supported string values are: 'mean', 'sum', 'none'
+        x (Variable): The input tensor. The shapes is [N, *], where N is batch size and `*` means any number of
+             additional dimensions. It's data type should be float32, float64 on CPU and float16, float32 on IPU.
+        reduction(str|int): Reduce the loss output. Supported string values are: 'sum', 'mean', 'none'
                             the corresponding int values are 0, 1, 2 respectively. The default value is "none".
 
     Returns:
@@ -1268,7 +1269,7 @@ def identity_loss(x, reduction="none"):
             out = fluid.layers.identity_loss(loss, reduction=1)
     """
     if isinstance(reduction, str):
-        reduction = {"mean": 0, "sum": 1, "none": 2}.get(reduction.lower())
+        reduction = {"sum": 0, "mean": 1, "none": 2}.get(reduction.lower())
         if reduction is None:
             raise Exception("Unsupported reduction type.")
 
