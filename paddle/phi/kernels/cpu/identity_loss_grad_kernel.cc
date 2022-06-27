@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/phi/kernels/identity_loss_grad_kernel.h"
+
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_utils.h"
@@ -43,7 +44,7 @@ void IdentityLossGradKernel(const Context& dev_ctx,
       break;
     default:
       // error
-      PADDLE_THROW(errors::InvalidArgument(
+      PADDLE_THROW(phi::errors::InvalidArgument(
           "reduction should be 0, 1 and 2. But get %d", reduction));
   }
 }

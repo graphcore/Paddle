@@ -25,6 +25,14 @@ namespace operators {
 class IdentityLossOp : public framework::OperatorWithKernel {
  public:
   using framework::OperatorWithKernel::OperatorWithKernel;
+
+ protected:
+  framework::OpKernelType GetExpectedKernelType(
+      const framework::ExecutionContext& ctx) const override {
+    return framework::OpKernelType(
+        OperatorWithKernel::IndicateVarDataType(ctx, "X"),
+        platform::CPUPlace());
+  }
 };
 
 class IdentityLossOpMaker : public framework::OpProtoAndCheckerMaker {
@@ -32,10 +40,9 @@ class IdentityLossOpMaker : public framework::OpProtoAndCheckerMaker {
   void Make() override {
     AddInput("X", "(Tensor) The input of identity_loss op");
     AddOutput("Out", "(Tensor) The output of identity_loss op");
-    AddAttr<int>("reduction",
-                 "(int, default 1). The reduction.")
-      .SetDefault(1)
-      .InEnum({0, 1, 2});
+    AddAttr<int>("reduction", "(int, default 1). The reduction.")
+        .SetDefault(1)
+        .InEnum({0, 1, 2});
     AddComment(R"DOC(
 IdentityLoss Operator mark the Loss var.
 
@@ -56,7 +63,7 @@ class IdentityLossGradOp : public framework::OperatorWithKernel {
       const framework::ExecutionContext& ctx) const override {
     auto input_data_type = OperatorWithKernel::IndicateVarDataType(
         ctx, framework::GradVarName("Out"));
-    return framework::OpKernelType(input_data_type, ctx.GetPlace());
+    return framework::OpKernelType(input_data_type, platform::CPUPlace());
   }
 };
 
@@ -84,10 +91,13 @@ DECLARE_INPLACE_OP_INFERER(IdentityLossGradInplaceInferer,
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-DECLARE_INFER_SHAPE_FUNCTOR(identity_loss, IdentityLossInferShapeFunctor,
+DECLARE_INFER_SHAPE_FUNCTOR(identity_loss,
+                            IdentityLossInferShapeFunctor,
                             PD_INFER_META(phi::IdentityLossInferMeta));
 
-REGISTER_OPERATOR(identity_loss, ops::IdentityLossOp, ops::IdentityLossOpMaker,
+REGISTER_OPERATOR(identity_loss,
+                  ops::IdentityLossOp,
+                  ops::IdentityLossOpMaker,
                   ops::IdentityLossGradMaker<paddle::framework::OpDesc>,
                   ops::IdentityLossGradMaker<paddle::imperative::OpBase>,
                   ops::IdentityLossInplaceInferer,

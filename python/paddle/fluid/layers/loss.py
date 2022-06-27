@@ -1235,16 +1235,24 @@ def identity_loss(x, reduction="none"):
     r"""Marks a tensor as being part of the loss calculation for IPU.
 
     This function should be called on the (final) loss of a model so that
-    it is used as the start of backpropagation. This is equivalent to calling
-    ``x.backward()`` on a tensor ``x`` when running on the CPU.
+    it is used as the start of backpropagation.
+
+    When `reduction` is `none`, return raw `Out`.
+    
+    When `reduction` is `mean`, return
+
+    .. math::
+        Out = MEAN(Out)
+
+    When `reduction` is `sum`, return
+
+    .. math::
+        Out = SUM(Out)
 
     Parameters:
         x (Variable): The calculated loss ``Tensor``.
-        reduction(str|int): Reduce the loss output. The default value is "none". Supported values are:
-
-            * ``"sum"``: Sum the losses.
-            * ``"mean"``: Take the mean of the losses.
-            * ``"none"``: Don't reduce the losses.
+        reduction(str|int): Reduce the loss output. Supported string values are: 'mean', 'sum', 'none'
+                            the corresponding int values are 0, 1, 2 respectively. The default value is "none".
 
     Returns:
         Variable: The loss ``Tensor`` with the specified reduction applied.
@@ -1272,11 +1280,10 @@ def identity_loss(x, reduction="none"):
     helper = LayerHelper('identity_loss', **locals())
     dtype = helper.input_dtype(input_param_name='x')
     out = helper.create_variable_for_type_inference(dtype)
-    helper.append_op(
-        type="identity_loss",
-        inputs={"X": x},
-        outputs={"Out": out},
-        attrs=attrs)
+    helper.append_op(type="identity_loss",
+                     inputs={"X": x},
+                     outputs={"Out": out},
+                     attrs=attrs)
     return out
 
 
