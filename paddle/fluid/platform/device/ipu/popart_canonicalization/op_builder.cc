@@ -138,6 +138,19 @@ Node *CreateCast(Graph *graph,
       graph, node, "popart_cast", inputs, outputs, {{"to", to}});
 }
 
+Node *CreateIdentityLossOp(Graph *graph,
+                           Node *node,
+                           const std::vector<Node *> &inputs,
+                           const std::vector<Node *> &outputs,
+                           int reduction) {
+  return CreateBaseOp(graph,
+                      node,
+                      "popart_identity_loss",
+                      inputs,
+                      outputs,
+                      {{"reduction", reduction}});
+}
+
 Node *CreateGemm(Graph *graph,
                  Node *node,
                  const std::vector<Node *> &inputs,

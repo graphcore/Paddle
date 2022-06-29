@@ -531,21 +531,26 @@ void Compiler::LowerOptimizer(const Scope* scope) {
       auto raw_type =
           BOOST_GET_CONST(std::string, op_desc->GetAttr("raw_type"));
       resources_->optimizer_type = raw_type;
-      auto loss_var =
-          BOOST_GET_CONST(std::string, op_desc->GetAttr("loss_var"));
-      resources_->loss_var = resources_->tensors[loss_var];
       resources_->with_lr_sched =
           BOOST_GET_CONST(bool, op_desc->GetAttr("with_lr_sched"));
       if (ipu_strategy_->is_dynamic) {
+        // loss_var in dy2static is set by identity_loss. And lr is
+        // passed by ipu_strategy.
         resources_->lr = ipu_strategy_->lr;
-      } else if (op_desc->HasAttr("lr_var")) {
-        auto lr_var = BOOST_GET_CONST(std::string, op_desc->GetAttr("lr_var"));
-        resources_->lr_var = lr_var;
-        resources_->lr = GetSingleVarFromScope<float>(scope, lr_var);
       } else {
-        // adadelta has no lr
-        resources_->lr = 0.01f;
-        resources_->with_lr_sched = false;
+        auto loss_var =
+            BOOST_GET_CONST(std::string, op_desc->GetAttr("loss_var"));
+        resources_->loss_var = resources_->tensors[loss_var];
+        if (op_desc->HasAttr("lr_var")) {
+          auto lr_var =
+              BOOST_GET_CONST(std::string, op_desc->GetAttr("lr_var"));
+          resources_->lr_var = lr_var;
+          resources_->lr = GetSingleVarFromScope<float>(scope, lr_var);
+        } else {
+          // adadelta has no lr
+          resources_->lr = 0.01f;
+          resources_->with_lr_sched = false;
+        }
       }
       VLOG(10) << "Set initial lr: " << resources_->lr;
 
@@ -767,6 +772,19 @@ void Compiler::LowerOptimizer(const Scope* scope) {
         PADDLE_THROW(platform::errors::Unimplemented(
             "optimizer %s is not implemented", type));
       }
+    } else if (op_type == "popart_identity_loss") {
+      auto outputs = op_desc->Outputs();
+      PADDLE_ENFORCE_EQ(
+          outputs.size(),
+          1,
+          platform::errors::InvalidArgument("Can only support one loss key"));
+      auto losses = outputs.begin()->second;
+      PADDLE_ENFORCE_EQ(
+          losses.size(),
+          1,
+          platform::errors::InvalidArgument("Can only support one loss name"));
+      auto loss_var = losses.front();
+      resources_->loss_var = resources_->tensors[loss_var];
     }
   }
 }

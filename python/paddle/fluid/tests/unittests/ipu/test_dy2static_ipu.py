@@ -53,6 +53,33 @@ class SimpleLayer(paddle.nn.Layer):
         return x
 
 
+class SimpleLayerWithoutIdentityLoss(paddle.nn.Layer):
+
+    def __init__(self, loss_op=None, use_softmax=True):
+        super(SimpleLayerWithoutIdentityLoss, self).__init__()
+        self.loss_op = loss_op
+        self.conv = paddle.nn.Conv2D(in_channels=3,
+                                     out_channels=1,
+                                     kernel_size=2,
+                                     stride=1)
+        self.use_softmax = use_softmax
+
+    @to_static()
+    def forward(self, x, target=None):
+        x = self.conv(x)
+        x = paddle.fluid.layers.flatten(x, axis=1)
+        if target is not None:
+            if self.use_softmax:
+                x = paddle.fluid.layers.softmax(x)
+            if self.loss_op:
+                loss = self.loss_op(x, target)
+            else:
+                loss = paddle.fluid.layers.cross_entropy(x, target)
+            loss = paddle.mean(loss)
+            return x, loss
+        return x
+
+
 class TestBase(unittest.TestCase):
 
     @classmethod
@@ -187,6 +214,76 @@ class TestPatch(unittest.TestCase):
 
         self.assertTrue(reset_getter is old_getter)
         self.assertTrue(reset_step is old_step)
+
+
+class TestWithoutIdentityLoss(unittest.TestCase):
+
+    def setUp(self):
+        paddle.disable_static()
+        self.set_op_attrs()
+        self.feed_data()
+
+    def set_op_attrs(self):
+        self.loss_op = paddle.fluid.layers.cross_entropy
+
+    def feed_data(self):
+        self.data = paddle.uniform((32, 3, 10, 10), dtype='float32')
+        self.label = paddle.randint(0, 10, shape=[32], dtype='int64')
+
+    def create_model(self):
+        return SimpleLayerWithoutIdentityLoss(loss_op=self.loss_op)
+
+    def _test(self, use_ipu=False):
+        paddle.seed(SEED)
+        np.random.seed(SEED)
+        model = self.create_model()
+        optim = paddle.optimizer.Adam(learning_rate=0.01,
+                                      parameters=model.parameters())
+
+        if use_ipu:
+            device = paddle.set_device('ipu')
+            ipu_strategy = paddle.static.IpuStrategy()
+            ipu_strategy.set_graph_config(num_ipus=1,
+                                          is_training=True,
+                                          micro_batch_size=1,
+                                          enable_manual_shard=False)
+            ipu_strategy.set_optimizer(optim)
+
+        result = []
+        for epoch in range(100):
+            # ipu only needs call model() to do forward/backward/grad_update
+            pred, loss = model(self.data, self.label)
+            if not use_ipu:
+                loss.backward()
+                optim.step()
+                optim.clear_grad()
+
+            result.append(loss)
+
+        if use_ipu:
+            ipu_strategy.release_patch()
+
+        return np.array(result)
+
+    def test_training(self):
+        cpu_loss = self._test(False).flatten()
+        ipu_loss = self._test(True).flatten()
+
+        self.assertTrue(np.allclose(ipu_loss, cpu_loss, atol=1e-4))
+
+
+class TestLoss1(TestWithoutIdentityLoss):
+
+    def set_op_attrs(self):
+        self.loss_op = paddle.fluid.layers.softmax_with_cross_entropy
+
+    def feed_data(self):
+        self.data = paddle.uniform((32, 3, 10, 10), dtype='float32')
+        self.label = paddle.randint(0, 10, shape=[32, 1], dtype='int64')
+
+    def create_model(self):
+        return SimpleLayerWithoutIdentityLoss(loss_op=self.loss_op,
+                                              use_softmax=False)
 
 
 if __name__ == "__main__":

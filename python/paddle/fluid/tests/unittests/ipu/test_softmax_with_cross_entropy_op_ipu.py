@@ -106,5 +106,43 @@ class TestCase2(TestBase):
         }
 
 
+class TestCase3(TestBase):
+
+    def set_op_attrs(self):
+        self.attrs = {
+            'soft_label': False,
+            'return_softmax': True,
+            'ignore_index': 1,
+        }
+
+    @IPUOpTest.static_graph
+    def build_model(self, on_ipu):
+        x = paddle.static.data(name=self.feed_list[0],
+                               shape=self.feed_shape[0],
+                               dtype="float32")
+        if on_ipu:
+            label = paddle.static.data(name=self.feed_list[1],
+                                       shape=self.feed_shape[1],
+                                       dtype='int32')
+        else:
+            label = paddle.static.data(name=self.feed_list[1],
+                                       shape=self.feed_shape[1],
+                                       dtype='int64')
+        loss, softmax = F.softmax_with_cross_entropy(x, label, **self.attrs)
+        self.fetch_list = [loss.name, softmax.name]
+
+    def run_model(self, exec_mode):
+        if self.is_ipu_mode(exec_mode):
+            self.feed_fp32['label'] = self.feed_fp32['label'].astype(np.int32)
+        self.run_op_test(exec_mode)
+
+    def test(self):
+        for m in IPUOpTest.ExecutionMode:
+            if not self.skip_mode(m):
+                self.build_model(self.is_ipu_mode(m))
+                self.run_model(m)
+        self.check()
+
+
 if __name__ == "__main__":
     unittest.main()
