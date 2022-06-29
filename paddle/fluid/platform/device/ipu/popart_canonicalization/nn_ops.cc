@@ -381,7 +381,8 @@ Node *conv2d_transpose_handler(Graph *graph, Node *node) {
 
   auto data_format = BOOST_GET_CONST(std::string, op->GetAttr("data_format"));
   if (data_format != "NCHW") {
-    platform::errors::InvalidArgument("Only support NCHW as data_format.");
+    PADDLE_THROW(
+        platform::errors::InvalidArgument("Only support NCHW as data_format."));
   }
 
   auto *kernel_info = GetInputVarNode("Filter", node);
@@ -467,7 +468,8 @@ Node *affine_channel_handler(Graph *graph, Node *node) {
 
   auto data_layout = BOOST_GET_CONST(std::string, op->GetAttr("data_layout"));
   if (data_layout != "NCHW") {
-    platform::errors::InvalidArgument("Only support NCHW as data_format.");
+    PADDLE_THROW(
+        platform::errors::InvalidArgument("Only support NCHW as data_format."));
   }
 
   auto *scale = GetInputVarNode("Scale", node);
@@ -504,6 +506,226 @@ Node *affine_channel_handler(Graph *graph, Node *node) {
                       {GetOutputVarNode("Out", node)});
 }
 
+Node *interp_handler(Graph *graph, Node *node, const std::string &mode) {
+  auto *op = node->Op();
+
+  auto data_layout = BOOST_GET_CONST(std::string, op->GetAttr("data_layout"));
+  if (data_layout != "NCHW") {
+    PADDLE_THROW(
+        platform::errors::InvalidArgument("Only support NCHW as data_format."));
+  }
+
+  auto align_corners = BOOST_GET_CONST(bool, op->GetAttr("align_corners"));
+  auto align_mode = BOOST_GET_CONST(int, op->GetAttr("align_mode"));
+
+  auto paddle_target_dtype = VarType::FP32;
+  auto onnx_target_dtype = ONNXDataType::FLOAT;
+  if (GetInputVarNode("X", node)->Var()->GetDataType() == VarType::FP16) {
+    paddle_target_dtype = VarType::FP16;
+    onnx_target_dtype = ONNXDataType::FLOAT16;
+  }
+
+  std::string coordinate_transformation_mode = "half_pixel";
+  if (align_corners) {
+    coordinate_transformation_mode = "align_corners";
+  } else if (mode == "nearest") {
+    coordinate_transformation_mode = "asymmetric";
+  } else if (align_mode == 1 && mode == "cubic") {
+    coordinate_transformation_mode = "asymmetric";
+  }
+
+  bool has_out_size = node->Op()->Input("OutSize").size() > 0;
+  bool has_size_tensor = node->Op()->Input("SizeTensor").size() > 0;
+  bool has_scale_tensor = node->Op()->Input("Scale").size() > 0;
+
+  Node *size = nullptr;
+  Node *scale = nullptr;
+  // Input: Size and Scale
+  if (has_out_size) {
+    // Get 'size' from the tensor
+    size = GetInputVarNode("OutSize", node);
+    if (size->Var()->GetDataType() != VarType::INT64) {
+      size = CreateCast(graph,
+                        node,
+                        {GetInputVarNode("OutSize", node)},
+                        {},
+                        VarType::INT64)
+                 ->outputs[0];
+    }
+  } else if (has_size_tensor) {
+    // Get 'size' from multi-tensors
+    std::vector<Node *> size_nodes;
+    for (auto var_name : node->Op()->Input("SizeTensor")) {
+      Node *size_node = GetInputVarNodeByVarName(var_name, node);
+      if (size_node->Var()->GetDataType() != VarType::INT64) {
+        size_node = CreateCast(graph, node, {size_node}, {}, VarType::INT64)
+                        ->outputs[0];
+      }
+      size_nodes.push_back(size_node);
+    }
+    size = CreateBaseOp(graph,
+                        node,
+                        "popart_concat",
+                        size_nodes,
+                        {},
+                        {{"axis", int64_t(0)}})
+               ->outputs[0];
+  } else if (has_scale_tensor) {
+    // Get 'scale' from tensor
+    scale = GetInputVarNode("Scale", node);
+    if (scale->Var()->GetDataType() != paddle_target_dtype) {
+      scale =
+          CreateCast(graph, node, {scale}, {}, paddle_target_dtype)->outputs[0];
+    }
+    auto *padding = CreateConst(graph,
+                                node,
+                                {},
+                                {},
+                                {{"value", std::vector<float>{1.0, 1.0}},
+                                 {"dims", std::vector<int64_t>{2}},
+                                 {"dtype", onnx_target_dtype}})
+                        ->outputs[0];
+    scale = CreateBaseOp(graph,
+                         node,
+                         "popart_concat",
+                         {padding, scale},
+                         {},
+                         {{"axis", int64_t(0)}})
+                ->outputs[0];
+  } else {
+    // Get 'size' or 'scale' from attribute
+    auto out_d = BOOST_GET_CONST(int, op->GetAttr("out_d"));
+    auto out_h = BOOST_GET_CONST(int, op->GetAttr("out_h"));
+    auto out_w = BOOST_GET_CONST(int, op->GetAttr("out_w"));
+    if (out_d > 0 || out_w > 0 || out_h > 0) {
+      std::vector<int64_t> out_size;
+      if (GetInputVarNode("X", node)->Var()->GetShape().size() == 5) {
+        out_size.push_back(int64_t(out_d));
+        out_size.push_back(int64_t(out_h));
+      } else if (GetInputVarNode("X", node)->Var()->GetShape().size() == 4) {
+        out_size.push_back(int64_t(out_h));
+      }
+      out_size.push_back(int64_t(out_w));
+      size =
+          CreateConst(graph,
+                      node,
+                      {},
+                      {},
+                      {{"value", out_size},
+                       {"dims", std::vector<int64_t>{int64_t(out_size.size())}},
+                       {"dtype", ONNXDataType::INT64}})
+              ->outputs[0];
+    } else {
+      auto scale_value =
+          BOOST_GET_CONST(std::vector<float>, op->GetAttr("scale"));
+      float padding = 1.0;
+      scale_value.insert(scale_value.begin(), padding);
+      scale_value.insert(scale_value.begin(), padding);
+      scale = CreateConst(
+                  graph,
+                  node,
+                  {},
+                  {},
+                  {{"value", scale_value},
+                   {"dims", std::vector<int64_t>{int64_t(scale_value.size())}},
+                   {"dtype", onnx_target_dtype}})
+                  ->outputs[0];
+    }
+  }
+
+  Node *roi =
+      CreateConst(
+          graph,
+          node,
+          {},
+          {},
+          {{"value",
+            std::vector<float>(
+                GetInputVarNode("X", node)->Var()->GetShape().size() * 2, 1.0)},
+           {"dims",
+            std::vector<int64_t>{int64_t(
+                GetInputVarNode("X", node)->Var()->GetShape().size() * 2)}},
+           {"dtype", onnx_target_dtype}})
+          ->outputs[0];
+
+  if (size != nullptr) {
+    Node *input_shape =
+        CreateBaseOp(
+            graph, node, "popart_shape", {GetInputVarNode("X", node)}, {})
+            ->outputs[0];
+    Node *start = CreateConst(graph,
+                              node,
+                              std::vector<int>{0},
+                              std::vector<int64_t>{1},
+                              ONNXDataType::INT32)
+                      ->outputs[0];
+    Node *end = CreateConst(graph,
+                            node,
+                            std::vector<int>{2},
+                            std::vector<int64_t>{1},
+                            ONNXDataType::INT32)
+                    ->outputs[0];
+    Node *axes = CreateConst(graph,
+                             node,
+                             std::vector<int>{0},
+                             std::vector<int64_t>{1},
+                             ONNXDataType::INT32)
+                     ->outputs[0];
+    Node *nc = CreateBaseOp(graph,
+                            node,
+                            "popart_slice",
+                            {input_shape, start, end, axes},
+                            {},
+                            {})
+                   ->outputs[0];
+    size = CreateBaseOp(graph,
+                        node,
+                        "popart_concat",
+                        {nc, size},
+                        {},
+                        {{"axis", int64_t(0)}})
+               ->outputs[0];
+  }
+  auto resize_attrs = AttributeMap{
+      {"coordinate_transformation_mode", coordinate_transformation_mode},
+      {"cubic_coeff_a", float(-0.75)},
+      {"exclude_outside", int64_t(0)},
+      {"extrapolation_value", float(0.0)},
+      {"mode", mode},
+      {"nearest_mode", std::string("round_prefer_floor")}};
+
+  if (mode == "nearest" && coordinate_transformation_mode == "asymmetric") {
+    resize_attrs.at("nearest_mode") = std::string("floor");
+  }
+
+  return CreateBaseOp(graph,
+                      node,
+                      "popart_resize",
+                      {GetInputVarNode("X", node), roi, scale, size},
+                      {GetOutputVarNode("Out", node)},
+                      resize_attrs);
+}
+
+Node *bilinear_interp_v2_handler(Graph *graph, Node *node) {
+  return interp_handler(graph, node, "linear");
+}
+
+Node *nearest_interp_v2_handler(Graph *graph, Node *node) {
+  return interp_handler(graph, node, "nearest");
+}
+
+Node *bicubic_interp_v2_handler(Graph *graph, Node *node) {
+  return interp_handler(graph, node, "cubic");
+}
+
+Node *linear_interp_v2_handler(Graph *graph, Node *node) {
+  return interp_handler(graph, node, "linear");
+}
+
+Node *trilinear_interp_v2_handler(Graph *graph, Node *node) {
+  return interp_handler(graph, node, "linear");
+}
+
 }  // namespace
 }  // namespace ipu
 }  // namespace platform
@@ -519,3 +741,8 @@ REGISTER_HANDLER(layer_norm, layer_norm_handler);
 REGISTER_HANDLER(conv2d, conv2d_handler);
 REGISTER_HANDLER(conv2d_transpose, conv2d_transpose_handler);
 REGISTER_HANDLER(dropout, dropout_handler);
+REGISTER_HANDLER(bilinear_interp_v2, bilinear_interp_v2_handler);
+REGISTER_HANDLER(nearest_interp_v2, nearest_interp_v2_handler);
+REGISTER_HANDLER(bicubic_interp_v2, bicubic_interp_v2_handler);
+REGISTER_HANDLER(linear_interp_v2, linear_interp_v2_handler);
+REGISTER_HANDLER(trilinear_interp_v2, trilinear_interp_v2_handler);
