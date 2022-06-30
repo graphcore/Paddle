@@ -114,14 +114,29 @@ Node *matmul_handler(Graph *graph, Node *node) {
   auto transpose_x = BOOST_GET_CONST(bool, op->GetAttr("transpose_X"));
   auto transpose_y = BOOST_GET_CONST(bool, op->GetAttr("transpose_Y"));
   auto alpha = BOOST_GET_CONST(float, op->GetAttr("alpha"));
-  auto x_shape = GetInputVarNode("X", node)->Var()->GetShape();
-  auto y_shape = GetInputVarNode("Y", node)->Var()->GetShape();
+  Node *x_node = GetInputVarNode("X", node);
+  Node *y_node = GetInputVarNode("Y", node);
+  int x_rank = x_node->Var()->GetShape().size();
+  int y_rank = y_node->Var()->GetShape().size();
 
-  int x_rank = x_shape.size();
-  std::vector<int64_t> perm;
-  if (x_rank == 1) {
-    perm = std::vector<int64_t>{0};
-  } else if (x_rank == 2) {
+  auto gen_perm = [](const int rank) -> std::vector<int64_t> {
+    std::vector<int64_t> perm;
+    if (rank == 1) {
+      perm = std::vector<int64_t>{0};
+    } else if (rank == 2) {
+      perm = std::vector<int64_t>{1, 0};
+    } else if (rank == 3) {
+      perm = std::vector<int64_t>{0, 2, 1};
+    } else if (rank == 4) {
+      perm = std::vector<int64_t>{0, 1, 3, 2};
+    } else {
+      PADDLE_THROW(platform::errors::InvalidArgument(
+          "op matmul with input rank == %d", rank));
+    }
+    return perm;
+  };
+
+  if (x_rank == 2) {
     if (!transpose_x && !transpose_y && is_float_equal(alpha, 1.0f)) {
       return CreateBaseOp(
           graph,
@@ -137,18 +152,10 @@ Node *matmul_handler(Graph *graph, Node *node) {
                       transpose_x,
                       transpose_y,
                       alpha);
-  } else if (x_rank == 3) {
-    perm = std::vector<int64_t>{0, 2, 1};
-  } else if (x_rank == 4) {
-    perm = std::vector<int64_t>{0, 1, 3, 2};
-  } else {
-    PADDLE_THROW(platform::errors::InvalidArgument(
-        "op matmul with input rank == %d", x_rank));
   }
 
-  Node *x_node = GetInputVarNode("X", node);
-  Node *y_node = GetInputVarNode("Y", node);
   if (transpose_x) {
+    auto perm = gen_perm(x_rank);
     x_node = CreateBaseOp(graph,
                           node,
                           "popart_transpose",
@@ -158,6 +165,7 @@ Node *matmul_handler(Graph *graph, Node *node) {
     x_node = x_node->outputs[0];
   }
   if (transpose_y) {
+    auto perm = gen_perm(y_rank);
     y_node = CreateBaseOp(graph,
                           node,
                           "popart_transpose",
@@ -368,28 +376,30 @@ Node *matmul_v2_handler(Graph *graph, Node *node) {
   auto *op = node->Op();
   auto transpose_x = BOOST_GET_CONST(bool, op->GetAttr("trans_x"));
   auto transpose_y = BOOST_GET_CONST(bool, op->GetAttr("trans_y"));
-  auto x_shape = GetInputVarNode("X", node)->Var()->GetShape();
-  auto y_shape = GetInputVarNode("Y", node)->Var()->GetShape();
-
-  std::vector<int64_t> perm;
-  int x_rank = x_shape.size();
-  if (x_rank == 1) {
-    perm = std::vector<int64_t>{0};
-  } else if (x_rank == 2) {
-    perm = std::vector<int64_t>{1, 0};
-  } else if (x_rank == 3) {
-    perm = std::vector<int64_t>{0, 2, 1};
-  } else if (x_rank == 4) {
-    perm = std::vector<int64_t>{0, 1, 3, 2};
-  } else {
-    PADDLE_THROW(platform::errors::InvalidArgument(
-        "op matmul with input rank == %d", x_rank));
-  }
-
   Node *x_node = GetInputVarNode("X", node);
   Node *y_node = GetInputVarNode("Y", node);
+  int x_rank = x_node->Var()->GetShape().size();
+  int y_rank = y_node->Var()->GetShape().size();
+
+  auto gen_perm = [](const int rank) -> std::vector<int64_t> {
+    std::vector<int64_t> perm;
+    if (rank == 1) {
+      perm = std::vector<int64_t>{0};
+    } else if (rank == 2) {
+      perm = std::vector<int64_t>{1, 0};
+    } else if (rank == 3) {
+      perm = std::vector<int64_t>{0, 2, 1};
+    } else if (rank == 4) {
+      perm = std::vector<int64_t>{0, 1, 3, 2};
+    } else {
+      PADDLE_THROW(platform::errors::InvalidArgument(
+          "op matmul with input rank == %d", rank));
+    }
+    return perm;
+  };
 
   if (transpose_x) {
+    auto perm = gen_perm(x_rank);
     x_node = CreateBaseOp(graph,
                           node,
                           "popart_transpose",
@@ -399,6 +409,7 @@ Node *matmul_v2_handler(Graph *graph, Node *node) {
     x_node = x_node->outputs[0];
   }
   if (transpose_y) {
+    auto perm = gen_perm(y_rank);
     y_node = CreateBaseOp(graph,
                           node,
                           "popart_transpose",
