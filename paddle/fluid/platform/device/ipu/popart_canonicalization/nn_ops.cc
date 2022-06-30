@@ -726,6 +726,67 @@ Node *trilinear_interp_v2_handler(Graph *graph, Node *node) {
   return interp_handler(graph, node, "linear");
 }
 
+Node *data_norm_handler(Graph *graph, Node *node) {
+  auto *op = node->Op();
+
+  int slot_dim = -1;
+  if (op->HasAttr("slot_dim")) {
+    slot_dim = BOOST_GET_CONST(int, op->GetAttr("slot_dim"));
+  }
+
+  if (slot_dim > 0) {
+    PADDLE_THROW(
+        platform::errors::InvalidArgument("slot_dim > 0 is not supported."));
+  }
+
+  bool enable_scale_and_shift = false;
+  if (op->HasAttr("enable_scale_and_shift")) {
+    enable_scale_and_shift =
+        BOOST_GET_CONST(bool, op->GetAttr("enable_scale_and_shift"));
+  }
+
+  auto *mean_arr = CreateBaseOp(graph,
+                                node,
+                                "popart_div",
+                                {GetInputVarNode("BatchSum", node),
+                                 GetInputVarNode("BatchSize", node)},
+                                {})
+                       ->outputs[0];
+  auto *scale_arr = CreateBaseOp(graph,
+                                 node,
+                                 "popart_div",
+                                 {GetInputVarNode("BatchSize", node),
+                                  GetInputVarNode("BatchSquareSum", node)},
+                                 {})
+                        ->outputs[0];
+  scale_arr =
+      CreateBaseOp(graph, node, "popart_sqrt", {scale_arr}, {})->outputs[0];
+  auto out =
+      CreateBaseOp(
+          graph, node, "popart_sub", {GetInputVarNode("X", node), mean_arr}, {})
+          ->outputs[0];
+
+  if (enable_scale_and_shift) {
+    auto scale_res = CreateBaseOp(graph,
+                                  node,
+                                  "popart_mul",
+                                  {out, GetInputVarNode("scale_w", node)},
+                                  {})
+                         ->outputs[0];
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_add",
+                        {scale_res, GetInputVarNode("bias", node)},
+                        {GetOutputVarNode("Y", node)});
+  } else {
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_mul",
+                        {out, scale_arr},
+                        {GetOutputVarNode("Y", node)});
+  }
+}
+
 }  // namespace
 }  // namespace ipu
 }  // namespace platform
@@ -746,3 +807,4 @@ REGISTER_HANDLER(nearest_interp_v2, nearest_interp_v2_handler);
 REGISTER_HANDLER(bicubic_interp_v2, bicubic_interp_v2_handler);
 REGISTER_HANDLER(linear_interp_v2, linear_interp_v2_handler);
 REGISTER_HANDLER(trilinear_interp_v2, trilinear_interp_v2_handler);
+REGISTER_HANDLER(data_norm, data_norm_handler);
