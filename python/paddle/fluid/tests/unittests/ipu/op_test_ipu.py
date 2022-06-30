@@ -256,7 +256,7 @@ class IPUOpTest(IPUTest):
                     max_atol = np.abs(ipu_fp16_res - cpu_fp32_res).max()
                     cpu_fp32_abs = np.abs(cpu_fp32_res)
                     cpu_fp32_abs[cpu_fp32_abs == 0.0] = 1e-20
-                    max_rtol = (np.abs(ipu_fp16 - cpu_fp32) /
+                    max_rtol = (np.abs(ipu_fp16_res - cpu_fp32_res) /
                                 cpu_fp32_abs).max()
                     raise AssertionError(
                         f"ipu_fp16 check failed. max_atol is {max_atol}, max_rtol is {max_rtol}"
