@@ -49,6 +49,12 @@ cmake \
 cmake --build /paddle_build --config Release --target all -j 25
 # cmake --build /paddle_build --config Release --target all -j `grep -c ^processor /proc/cpuinfo`
 
+# make sure cmake works well 
+if [ -z "$(ls -A /paddle_build/python/dist)" ]; then
+  echo "ERROR !!! cmake configure or build error"
+  exit 1
+fi
+
 # ccache
 ccache -s
 
