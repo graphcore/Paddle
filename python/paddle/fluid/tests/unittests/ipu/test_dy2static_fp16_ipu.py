@@ -14,16 +14,13 @@
 
 from __future__ import print_function
 
-import numpy as np
-import unittest
-import sys
-import os
-import paddle
-import paddle.fluid as fluid
-from paddle.jit import to_static
-from paddle.utils.cpp_extension import load
-from paddle.optimizer.lr import LRScheduler
 import tempfile
+import unittest
+
+import numpy as np
+import paddle
+from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest
+from paddle.jit import to_static
 
 SEED = 2022
 
@@ -52,7 +49,7 @@ class SimpleLayer(paddle.nn.Layer):
         return x
 
 
-class TestBase(unittest.TestCase):
+class TestBase(IPUOpTest):
 
     @classmethod
     def setUpClass(cls):

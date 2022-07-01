@@ -14,16 +14,15 @@
 
 from __future__ import print_function
 
-import numpy as np
-import unittest
-import sys
-import paddle
-import paddle.fluid as fluid
-from paddle.jit import to_static
-from paddle.utils.cpp_extension import load
-from paddle.optimizer.lr import LRScheduler
-from paddle.fluid.dygraph.dygraph_to_static.program_translator import ProgramCache
 import tempfile
+import unittest
+
+import numpy as np
+import paddle
+from paddle.fluid.dygraph.dygraph_to_static.program_translator import ProgramCache
+from paddle.fluid.tests.unittests.ipu.op_test_ipu import IPUOpTest
+from paddle.jit import to_static
+from paddle.optimizer.lr import LRScheduler
 
 SEED = 2022
 
@@ -80,10 +79,9 @@ class SimpleLayerWithoutIdentityLoss(paddle.nn.Layer):
         return x
 
 
-class TestBase(unittest.TestCase):
+class TestBase(IPUOpTest):
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         paddle.disable_static()
 
     def _test(self, use_ipu=False):
@@ -196,10 +194,9 @@ class TestSaveLoad(TestBase):
         return np.array(result)
 
 
-class TestPatch(unittest.TestCase):
+class TestPatch(IPUOpTest):
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(cls):
         paddle.disable_static()
 
     def test(self, use_ipu=False):
@@ -216,7 +213,7 @@ class TestPatch(unittest.TestCase):
         self.assertTrue(reset_step is old_step)
 
 
-class TestWithoutIdentityLoss(unittest.TestCase):
+class TestWithoutIdentityLoss(IPUOpTest):
 
     def setUp(self):
         paddle.disable_static()
