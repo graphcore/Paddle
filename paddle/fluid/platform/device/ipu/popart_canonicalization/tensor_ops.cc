@@ -842,6 +842,115 @@ Node *clip_handler(Graph *graph, Node *node) {
   }
 }
 
+Node *dist_handler(Graph *graph, Node *node) {
+  // Minimum negative float
+  union neg_infinity {
+    int neg_int_inf;
+    float neg_float_int;
+  };
+  neg_infinity neg_inf;
+  neg_inf.neg_int_inf = 0xFF800000;
+  float g_NegFloatInfinity = neg_inf.neg_float_int;
+
+  auto *op = node->Op();
+  auto *sub_node =
+      CreateBaseOp(graph,
+                   node,
+                   "popart_sub",
+                   {GetInputVarNode("X", node), GetInputVarNode("Y", node)},
+                   {})
+          ->outputs[0];
+  auto *abs_node =
+      CreateBaseOp(graph, node, "popart_abs", {sub_node}, {})->outputs[0];
+
+  auto p = BOOST_GET_CONST(float, op->GetAttr("p"));
+
+  // Reshape to 1-D output
+  auto target_shape = AttributeMap{{"value", std::vector<int64_t>{-1}},
+                                   {"dims", std::vector<int64_t>{1}},
+                                   {"dtype", ONNXDataType::INT64}};
+  auto *target_shape_node =
+      CreateBaseOp(graph, node, "popart_constant", {}, {}, target_shape)
+          ->outputs[0];
+
+  if (fabs(p) < 1e-6) {
+    auto *sign_node =
+        CreateBaseOp(graph, node, "popart_sign", {abs_node}, {})->outputs[0];
+    auto *sum_node = CreateBaseOp(graph,
+                                  node,
+                                  "popart_reducesum",
+                                  {sign_node},
+                                  {},
+                                  {{"keepdims", int64_t{0}}})
+                         ->outputs[0];
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_reshape",
+                        {sum_node, target_shape_node},
+                        {GetOutputVarNode("Out", node)});
+  } else if (p == std::numeric_limits<float>::infinity()) {
+    auto *max_node = CreateBaseOp(graph,
+                                  node,
+                                  "popart_reducemax",
+                                  {abs_node},
+                                  {},
+                                  {{"keepdims", int64_t{0}}})
+                         ->outputs[0];
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_reshape",
+                        {max_node, target_shape_node},
+                        {GetOutputVarNode("Out", node)});
+  } else if (p == g_NegFloatInfinity) {
+    auto *min_node = CreateBaseOp(graph,
+                                  node,
+                                  "popart_reducemin",
+                                  {abs_node},
+                                  {},
+                                  {{"keepdims", int64_t{0}}})
+                         ->outputs[0];
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_reshape",
+                        {min_node, target_shape_node},
+                        {GetOutputVarNode("Out", node)});
+  } else {
+    auto target_dtype = ONNXDataType::FLOAT;
+    if (GetInputVarNode("X", node)->Var()->GetDataType() == VarType::FP16) {
+      target_dtype = ONNXDataType::FLOAT16;
+    }
+
+    auto pow_factor = AttributeMap{{"value", std::vector<float>{p}},
+                                   {"dims", std::vector<int64_t>{1}},
+                                   {"dtype", target_dtype}};
+    auto *pow_factor_node =
+        CreateBaseOp(graph, node, "popart_constant", {}, {}, pow_factor)
+            ->outputs[0];
+    auto *pow_node =
+        CreateBaseOp(graph, node, "popart_pow", {abs_node, pow_factor_node}, {})
+            ->outputs[0];
+    auto *sum_node = CreateBaseOp(graph,
+                                  node,
+                                  "popart_reducesum",
+                                  {pow_node},
+                                  {},
+                                  {{"keepdims", int64_t{0}}})
+                         ->outputs[0];
+    auto *s_node =
+        CreateBaseOp(
+            graph, node, "popart_reshape", {sum_node, target_shape_node}, {})
+            ->outputs[0];
+    auto *p_1 =
+        CreateBaseOp(graph, node, "popart_reciprocal", {pow_factor_node}, {})
+            ->outputs[0];
+    return CreateBaseOp(graph,
+                        node,
+                        "popart_pow",
+                        {s_node, p_1},
+                        {GetOutputVarNode("Out", node)});
+  }
+}
+
 }  // namespace
 }  // namespace ipu
 }  // namespace platform
@@ -872,3 +981,4 @@ REGISTER_HANDLER(one_hot, one_hot_handler);
 REGISTER_HANDLER(one_hot_v2, one_hot_v2_handler);
 REGISTER_HANDLER(dot, dot_handler);
 REGISTER_HANDLER(clip, clip_handler);
+REGISTER_HANDLER(dist, dist_handler);
